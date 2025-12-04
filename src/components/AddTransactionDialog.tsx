@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -35,10 +36,11 @@ import { CategoryCombobox } from "./CategoryCombobox";
 
 const transactionSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
-  amount: z.coerce.number().refine(val => val !== 0, "O valor não pode ser zero."),
+  amount: z.coerce.number().positive("O valor deve ser um número positivo."),
   date: z.date({ required_error: "A data é obrigatória." }),
   account_id: z.string().uuid("Selecione uma conta válida."),
   category: z.string().optional(),
+  type: z.enum(['income', 'expense'], { required_error: "Selecione o tipo da transação." }),
 });
 
 interface AddTransactionDialogProps {
@@ -67,6 +69,7 @@ const AddTransactionDialog = ({ isOpen, onOpenChange }: AddTransactionDialogProp
       amount: 0,
       date: new Date(),
       category: "",
+      type: "expense",
     },
   });
 
@@ -76,11 +79,19 @@ const AddTransactionDialog = ({ isOpen, onOpenChange }: AddTransactionDialogProp
   });
 
   const addTransactionMutation = useMutation({
-    mutationFn: async (newTransaction: z.infer<typeof transactionSchema>) => {
+    mutationFn: async (data: z.infer<typeof transactionSchema>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado.");
 
-      const { error } = await supabase.from("transactions").insert([{ ...newTransaction, user_id: user.id, status: 'Concluído' }]);
+      const amountToInsert = data.type === 'expense' ? data.amount * -1 : data.amount;
+      const { type, ...transactionData } = data;
+
+      const { error } = await supabase.from("transactions").insert([{ 
+        ...transactionData, 
+        amount: amountToInsert,
+        user_id: user.id, 
+        status: 'Concluído' 
+      }]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -105,10 +116,34 @@ const AddTransactionDialog = ({ isOpen, onOpenChange }: AddTransactionDialogProp
         <DialogHeader>
           <DialogTitle>Adicionar Nova Transação</DialogTitle>
           <DialogDescription>
-            Registre uma nova receita ou despesa. Use valores positivos para receitas e negativos para despesas.
+            Registre uma nova receita ou despesa.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <Label>Tipo de Transação</Label>
+            <Controller
+              name="type"
+              control={control}
+              render={({ field }) => (
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex items-center space-x-4 pt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="expense" id="expense" />
+                    <Label htmlFor="expense">Despesa</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="income" id="income" />
+                    <Label htmlFor="income">Receita</Label>
+                  </div>
+                </RadioGroup>
+              )}
+            />
+            {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
+          </div>
           <div>
             <Label htmlFor="name">Nome da Transação</Label>
             <Input id="name" {...register("name")} />
@@ -116,7 +151,7 @@ const AddTransactionDialog = ({ isOpen, onOpenChange }: AddTransactionDialogProp
           </div>
           <div>
             <Label htmlFor="amount">Valor (R$)</Label>
-            <Input id="amount" type="number" step="0.01" {...register("amount")} placeholder="Ex: -50.00 para despesa" />
+            <Input id="amount" type="number" step="0.01" {...register("amount")} />
             {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>}
           </div>
           <div>

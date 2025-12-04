@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -36,10 +37,11 @@ import { useEffect } from "react";
 
 const transactionSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
-  amount: z.coerce.number().refine(val => val !== 0, "O valor não pode ser zero."),
+  amount: z.coerce.number().positive("O valor deve ser um número positivo."),
   date: z.date({ required_error: "A data é obrigatória." }),
   account_id: z.string().uuid("Selecione uma conta válida."),
   category: z.string().optional(),
+  type: z.enum(['income', 'expense'], { required_error: "Selecione o tipo da transação." }),
 });
 
 interface TransactionToEdit {
@@ -81,6 +83,8 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction }: EditTransa
         ...transaction,
         date: new Date(transaction.date),
         category: transaction.category || "",
+        type: transaction.amount < 0 ? 'expense' : 'income',
+        amount: Math.abs(transaction.amount),
       });
     }
   }, [transaction, reset]);
@@ -91,12 +95,15 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction }: EditTransa
   });
 
   const editTransactionMutation = useMutation({
-    mutationFn: async (updatedTransaction: z.infer<typeof transactionSchema>) => {
+    mutationFn: async (data: z.infer<typeof transactionSchema>) => {
       if (!transaction) throw new Error("Nenhuma transação selecionada para edição.");
       
+      const amountToUpdate = data.type === 'expense' ? data.amount * -1 : data.amount;
+      const { type, ...transactionData } = data;
+
       const { error } = await supabase
         .from("transactions")
-        .update(updatedTransaction)
+        .update({ ...transactionData, amount: amountToUpdate })
         .eq("id", transaction.id);
 
       if (error) throw error;
@@ -126,6 +133,30 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction }: EditTransa
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+           <div>
+            <Label>Tipo de Transação</Label>
+            <Controller
+              name="type"
+              control={control}
+              render={({ field }) => (
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  className="flex items-center space-x-4 pt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="expense" id="edit-expense" />
+                    <Label htmlFor="edit-expense">Despesa</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="income" id="edit-income" />
+                    <Label htmlFor="edit-income">Receita</Label>
+                  </div>
+                </RadioGroup>
+              )}
+            />
+            {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
+          </div>
           <div>
             <Label htmlFor="name">Nome da Transação</Label>
             <Input id="name" {...register("name")} />
