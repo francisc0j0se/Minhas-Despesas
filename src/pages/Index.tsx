@@ -29,6 +29,11 @@ interface MonthlyExpense {
   is_paid: boolean;
 }
 
+interface YearlyFixedExpense {
+  month: number;
+  amount: number;
+}
+
 const Index = () => {
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -40,7 +45,8 @@ const Index = () => {
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
   const monthName = monthNames[selectedMonth - 1];
 
-  const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
+  // Query for monthly data (cards, pie chart)
+  const { data: monthlyTransactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
     queryKey: ['transactions', selectedMonth, selectedYear],
     queryFn: async () => {
       const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString();
@@ -55,10 +61,37 @@ const Index = () => {
     },
   });
 
-  const { data: fixedExpenses, isLoading: isLoadingFixedExpenses } = useQuery<MonthlyExpense[]>({
+  // Query for monthly fixed expenses (cards, pie chart)
+  const { data: monthlyFixedExpenses, isLoading: isLoadingFixedExpenses } = useQuery<MonthlyExpense[]>({
     queryKey: ["monthly_fixed_expenses", selectedMonth, selectedYear],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_monthly_fixed_expenses', { p_month: selectedMonth, p_year: selectedYear });
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+  });
+
+  // Query for yearly variable expenses (bar chart)
+  const { data: yearlyTransactions, isLoading: isLoadingYearlyTransactions } = useQuery<Transaction[]>({
+    queryKey: ['yearlyTransactions', selectedYear],
+    queryFn: async () => {
+      const startDate = new Date(selectedYear, 0, 1).toISOString();
+      const endDate = new Date(selectedYear + 1, 0, 1).toISOString();
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, date, amount')
+        .gte('date', startDate)
+        .lt('date', endDate);
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+  });
+
+  // Query for yearly fixed expenses (bar chart)
+  const { data: yearlyFixedExpenses, isLoading: isLoadingYearlyFixed } = useQuery<YearlyFixedExpense[]>({
+    queryKey: ["yearly_fixed_expenses", selectedYear],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_yearly_fixed_expenses', { p_year: selectedYear });
       if (error) throw new Error(error.message);
       return data || [];
     },
@@ -69,12 +102,12 @@ const Index = () => {
   };
 
   const calculateSummary = () => {
-    const currentTransactions = transactions || [];
+    const currentTransactions = monthlyTransactions || [];
     const incomeThisMonth = currentTransactions.filter(t => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
     
     const expensesFromTransactions = currentTransactions.filter(t => t.amount < 0).reduce((acc, t) => acc + t.amount, 0);
-    const expensesFromFixed = (fixedExpenses || []).reduce((acc, fe) => acc + fe.amount, 0);
-    const paidFixedExpenses = (fixedExpenses || []).filter(fe => fe.is_paid).reduce((acc, fe) => acc + fe.amount, 0);
+    const expensesFromFixed = (monthlyFixedExpenses || []).reduce((acc, fe) => acc + fe.amount, 0);
+    const paidFixedExpenses = (monthlyFixedExpenses || []).filter(fe => fe.is_paid).reduce((acc, fe) => acc + fe.amount, 0);
 
     const totalExpensesThisMonth = (showVariable ? Math.abs(expensesFromTransactions) : 0) + (showFixed ? expensesFromFixed : 0);
     const totalPaidThisMonth = (showVariable ? Math.abs(expensesFromTransactions) : 0) + (showFixed ? paidFixedExpenses : 0);
@@ -92,38 +125,39 @@ const Index = () => {
   };
 
   const getSpendingChartData = () => {
-    const monthlySpending: { [key: string]: number } = {};
     const monthNamesChart = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-    
-    if (showVariable) {
-      (transactions || []).filter(t => t.amount < 0).forEach(t => {
-        const date = new Date(t.date);
-        const monthKey = monthNamesChart[date.getMonth()];
-        monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + Math.abs(t.amount);
+    const monthlySpending = Array.from({ length: 12 }, (_, i) => ({ month: monthNamesChart[i], spending: 0 }));
+
+    if (showVariable && yearlyTransactions) {
+      yearlyTransactions.filter(t => t.amount < 0).forEach(t => {
+        const monthIndex = new Date(t.date).getMonth();
+        monthlySpending[monthIndex].spending += Math.abs(t.amount);
       });
     }
 
-    if (showFixed) {
-      const fixedExpensesTotal = (fixedExpenses || []).reduce((acc, expense) => acc + expense.amount, 0);
-      const currentMonthName = monthNamesChart[selectedMonth - 1];
-      monthlySpending[currentMonthName] = (monthlySpending[currentMonthName] || 0) + fixedExpensesTotal;
+    if (showFixed && yearlyFixedExpenses) {
+      yearlyFixedExpenses.forEach(fe => {
+        if (fe.month >= 1 && fe.month <= 12) {
+          monthlySpending[fe.month - 1].spending += fe.amount;
+        }
+      });
     }
 
-    return Object.keys(monthlySpending).map(key => ({ month: key, spending: monthlySpending[key] }));
+    return monthlySpending;
   };
 
   const getCategorySpendingData = () => {
     const categoryTotals: { [key: string]: number } = {};
     
     if (showVariable) {
-      (transactions || []).filter(t => t.amount < 0).forEach(t => {
+      (monthlyTransactions || []).filter(t => t.amount < 0).forEach(t => {
         const category = t.category || 'Sem Categoria';
         categoryTotals[category] = (categoryTotals[category] || 0) + Math.abs(t.amount);
       });
     }
 
     if (showFixed) {
-      (fixedExpenses || []).forEach(fe => {
+      (monthlyFixedExpenses || []).forEach(fe => {
         const category = fe.category || 'Sem Categoria';
         categoryTotals[category] = (categoryTotals[category] || 0) + fe.amount;
       });
@@ -138,7 +172,7 @@ const Index = () => {
     const nextWeek = new Date();
     nextWeek.setDate(today + 7);
 
-    return (fixedExpenses || [])
+    return (monthlyFixedExpenses || [])
       .filter(fe => !fe.is_paid)
       .filter(fe => {
         const dueDate = fe.day_of_month;
@@ -150,7 +184,7 @@ const Index = () => {
       .sort((a, b) => a.day_of_month - b.day_of_month);
   };
 
-  const isLoading = isLoadingTransactions || isLoadingFixedExpenses;
+  const isLoading = isLoadingTransactions || isLoadingFixedExpenses || isLoadingYearlyTransactions || isLoadingYearlyFixed;
 
   if (isLoading) {
     return <div className="flex justify-center items-center min-h-screen">Carregando...</div>;
