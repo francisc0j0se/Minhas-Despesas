@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
   LineChart,
@@ -6,6 +6,7 @@ import {
   Settings,
   Users,
   Wallet,
+  LogOut,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -13,17 +14,23 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Painel' },
   { href: '/accounts', icon: Wallet, label: 'Contas' },
   { href: '/transactions', icon: LineChart, label: 'Transações' },
   { href: '/budgets', icon: Package, label: 'Orçamentos' },
-  { href: '/settings', icon: Settings, label: 'Configurações' },
 ];
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
 
   return (
     <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
@@ -52,6 +59,35 @@ const Sidebar = () => {
             <TooltipContent side="right">{item.label}</TooltipContent>
           </Tooltip>
         ))}
+      </nav>
+      <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/settings"
+              className={cn(
+                'flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8',
+                location.pathname === '/settings' && 'bg-accent text-accent-foreground'
+              )}
+            >
+              <Settings className="h-5 w-5" />
+              <span className="sr-only">Configurações</span>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Configurações</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={handleLogout}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground md:h-8 md:w-8"
+            >
+              <LogOut className="h-5 w-5" />
+              <span className="sr-only">Sair</span>
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Sair</TooltipContent>
+        </Tooltip>
       </nav>
     </aside>
   );

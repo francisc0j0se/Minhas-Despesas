@@ -10,26 +10,32 @@ import Accounts from "./pages/Accounts";
 import Transactions from "./pages/Transactions";
 import Budgets from "./pages/Budgets";
 import Settings from "./pages/Settings";
+import Login from "./pages/Login";
+import { AuthProvider } from "./contexts/AuthProvider";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
 const AppRoutes = () => (
   <Routes>
-    <Route
-      path="/*"
-      element={
-        <DashboardLayout>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/accounts" element={<Accounts />} />
-            <Route path="/transactions" element={<Transactions />} />
-            <Route path="/budgets" element={<Budgets />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </DashboardLayout>
-      }
-    />
+    <Route path="/login" element={<Login />} />
+    <Route element={<ProtectedRoute />}>
+      <Route
+        path="/*"
+        element={
+          <DashboardLayout>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/accounts" element={<Accounts />} />
+              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/budgets" element={<Budgets />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </DashboardLayout>
+        }
+      />
+    </Route>
   </Routes>
 );
 
@@ -39,7 +45,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppRoutes />
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
