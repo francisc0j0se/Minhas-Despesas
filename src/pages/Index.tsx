@@ -94,27 +94,48 @@ const Index = () => {
   };
 
   const getSpendingChartData = () => {
-    const monthlySpending: { [key: string]: number } = {};
+    const monthlySpending: { [key: string]: { total: number; monthName: string } } = {};
     const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
 
+    // Processar transações variáveis
     (transactions || []).forEach(t => {
       if (t.amount < 0) {
         const date = new Date(t.date);
-        const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        const monthKey = `${year}-${month}`;
+        
         if (!monthlySpending[monthKey]) {
-          monthlySpending[monthKey] = 0;
+          monthlySpending[monthKey] = { total: 0, monthName: monthNames[month] };
         }
-        monthlySpending[monthKey] += Math.abs(t.amount);
+        monthlySpending[monthKey].total += Math.abs(t.amount);
       }
     });
 
-    return Object.keys(monthlySpending).map(key => {
-      const [year, month] = key.split('-');
-      return {
-        month: `${monthNames[parseInt(month, 10)]}`,
-        spending: monthlySpending[key]
-      };
-    }).slice(-7);
+    // Adicionar despesas fixas do mês atual
+    const fixedExpensesTotal = (fixedExpenses || []).reduce((acc, expense) => acc + expense.amount, 0);
+    
+    if (fixedExpensesTotal > 0) {
+        if (!monthlySpending[currentMonthKey]) {
+            monthlySpending[currentMonthKey] = { total: 0, monthName: monthNames[now.getMonth()] };
+        }
+        monthlySpending[currentMonthKey].total += fixedExpensesTotal;
+    }
+
+    // Formatar para o gráfico e ordenar por data
+    const sortedKeys = Object.keys(monthlySpending).sort((a, b) => {
+        const [yearA, monthA] = a.split('-').map(Number);
+        const [yearB, monthB] = b.split('-').map(Number);
+        if (yearA !== yearB) return yearA - yearB;
+        return monthA - monthB;
+    });
+
+    return sortedKeys.map(key => ({
+      month: monthlySpending[key].monthName,
+      spending: monthlySpending[key].total
+    })).slice(-7);
   };
 
   const isLoading = isLoadingTransactions || isLoadingFixedExpenses;
