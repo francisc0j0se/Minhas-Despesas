@@ -98,7 +98,7 @@ const Revenues = () => {
         </header>
         <Card>
           <CardHeader>
-            <CardTitle>Suas Receitas</CardTitle>
+            <CardTitle>Suas Receitas de {monthNames[selectedMonth - 1]} de {selectedYear}</CardTitle>
             <CardDescription>
               Visualize e gerencie todas as suas entradas aqui.
             </CardDescription>
