@@ -4,12 +4,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
+import { CategoryCombobox } from "./CategoryCombobox";
 
 const expenseSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
@@ -25,8 +26,12 @@ interface AddFixedExpenseDialogProps {
 
 const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogProps) => {
   const queryClient = useQueryClient();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<z.infer<typeof expenseSchema>>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<z.infer<typeof expenseSchema>>({
     resolver: zodResolver(expenseSchema),
+    defaultValues: {
+      name: "",
+      category: "",
+    }
   });
 
   const mutation = useMutation({
@@ -72,8 +77,17 @@ const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogPr
             {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>}
           </div>
           <div>
-            <Label htmlFor="category">Categoria</Label>
-            <Input id="category" {...register("category")} />
+            <Label>Categoria</Label>
+            <Controller
+              name="category"
+              control={control}
+              render={({ field }) => (
+                <CategoryCombobox
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                />
+              )}
+            />
           </div>
           <div>
             <Label htmlFor="day_of_month">Dia do Vencimento</Label>

@@ -31,6 +31,7 @@ import { showSuccess, showError } from "@/utils/toast";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { CategoryCombobox } from "./CategoryCombobox";
 
 const transactionSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
@@ -171,8 +172,17 @@ const AddTransactionDialog = ({ isOpen, onOpenChange }: AddTransactionDialogProp
             {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date.message}</p>}
           </div>
           <div>
-            <Label htmlFor="category">Categoria</Label>
-            <Input id="category" {...register("category")} />
+            <Label>Categoria</Label>
+             <Controller
+              name="category"
+              control={control}
+              render={({ field }) => (
+                <CategoryCombobox
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                />
+              )}
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
