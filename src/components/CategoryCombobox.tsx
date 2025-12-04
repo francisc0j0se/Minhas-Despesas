@@ -9,6 +9,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -45,7 +46,12 @@ export function CategoryCombobox({ value, onChange }: CategoryComboboxProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado.");
       const { error } = await supabase.from("categories").insert([{ name: categoryName, user_id: user.id }]);
-      if (error) throw error;
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error(`A categoria "${categoryName}" já existe.`);
+        }
+        throw error;
+      }
       return categoryName;
     },
     onSuccess: (newCategory) => {
@@ -56,17 +62,27 @@ export function CategoryCombobox({ value, onChange }: CategoryComboboxProps) {
       setSearch("");
     },
     onError: (error) => {
-      showError(`Erro ao criar categoria: ${error.message}`);
+      showError(`Erro: ${error.message}`);
     },
   });
 
   const handleCreateNew = () => {
-    if (search && !categories?.includes(search)) {
-      addCategoryMutation.mutate(search);
+    const trimmedSearch = search.trim();
+    if (!trimmedSearch) return;
+
+    const categoryExists = categories?.some(
+      (c) => c.trim().toLowerCase() === trimmedSearch.toLowerCase()
+    );
+
+    if (!categoryExists) {
+      addCategoryMutation.mutate(trimmedSearch);
     }
   };
 
   const displayedCategories = categories || [];
+  const trimmedSearch = search.trim();
+  const categoryExists = displayedCategories.some(c => c.trim().toLowerCase() === trimmedSearch.toLowerCase());
+  const showCreateOption = trimmedSearch && !isLoading && !categoryExists;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -82,7 +98,10 @@ export function CategoryCombobox({ value, onChange }: CategoryComboboxProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
+        <Command filter={(value, search) => {
+          if (value.toLowerCase().includes(search.toLowerCase())) return 1;
+          return 0;
+        }}>
           <CommandInput 
             placeholder="Pesquisar ou criar nova..."
             value={search}
@@ -90,39 +109,43 @@ export function CategoryCombobox({ value, onChange }: CategoryComboboxProps) {
           />
           <CommandList>
             <CommandEmpty>
-              {search ? (
-                <CommandItem onSelect={handleCreateNew} className="flex items-center gap-2 cursor-pointer">
-                  <PlusCircle className="h-4 w-4" />
-                  <span>Criar "{search}"</span>
-                </CommandItem>
-              ) : (
-                "Nenhuma categoria encontrada."
-              )}
+              {isLoading ? "Carregando..." : "Nenhuma categoria encontrada."}
             </CommandEmpty>
             <CommandGroup>
-              {isLoading ? (
-                <CommandItem disabled>Carregando...</CommandItem>
-              ) : (
-                displayedCategories.map((category) => (
-                  <CommandItem
-                    key={category}
-                    value={category}
-                    onSelect={(currentValue) => {
-                      onChange(currentValue === value ? "" : currentValue);
-                      setOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === category ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {category}
-                  </CommandItem>
-                ))
-              )}
+              {displayedCategories.map((category) => (
+                <CommandItem
+                  key={category}
+                  value={category}
+                  onSelect={(currentValue) => {
+                    onChange(currentValue === value ? "" : currentValue);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === category ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {category}
+                </CommandItem>
+              ))}
             </CommandGroup>
+            {showCreateOption && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    value={trimmedSearch}
+                    onSelect={handleCreateNew}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                    <span>Criar "{trimmedSearch}"</span>
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
