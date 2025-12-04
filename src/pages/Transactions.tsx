@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -42,6 +42,19 @@ interface Transaction {
   accounts: { name: string } | null;
 }
 
+interface FixedExpense {
+  id: string;
+  name: string;
+  amount: number;
+  day_of_month: number;
+  category: string | null;
+}
+
+interface CombinedEntry extends Omit<Transaction, 'accounts' | 'account_id'> {
+  type: 'Variável' | 'Fixa';
+  accountName: string | null;
+}
+
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -60,31 +73,63 @@ const Transactions = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  const { data: transactions, isLoading, error } = useQuery<Transaction[]>({
-    queryKey: ['transactionsWithAccount', selectedMonth, selectedYear],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['allTransactions', selectedMonth, selectedYear],
     queryFn: async () => {
       const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString();
       const endDate = new Date(selectedYear, selectedMonth, 1).toISOString();
 
-      const { data, error } = await supabase
+      const transactionsPromise = supabase
         .from('transactions')
-        .select(`
-          *,
-          accounts (
-            name
-          )
-        `)
+        .select(`*, accounts (name)`)
         .gte('date', startDate)
-        .lt('date', endDate)
-        .order('date', { ascending: false });
-      if (error) throw new Error(error.message);
-      return data as Transaction[];
+        .lt('date', endDate);
+
+      const fixedExpensesPromise = supabase.rpc('get_monthly_fixed_expenses', { 
+        p_month: selectedMonth, 
+        p_year: selectedYear 
+      });
+
+      const [transactionsRes, fixedExpensesRes] = await Promise.all([transactionsPromise, fixedExpensesPromise]);
+
+      if (transactionsRes.error) throw new Error(transactionsRes.error.message);
+      if (fixedExpensesRes.error) throw new Error(fixedExpensesRes.error.message);
+
+      return {
+        transactions: (transactionsRes.data as Transaction[]) || [],
+        fixedExpenses: (fixedExpensesRes.data as FixedExpense[]) || [],
+      };
     }
   });
 
-  const handleEditClick = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setEditTransactionDialogOpen(true);
+  const combinedData = useMemo<CombinedEntry[]>(() => {
+    if (!data) return [];
+
+    const variableEntries: CombinedEntry[] = data.transactions.map(t => ({
+      ...t,
+      type: 'Variável',
+      accountName: t.accounts?.name || null,
+    }));
+
+    const fixedEntries: CombinedEntry[] = data.fixedExpenses.map(fe => ({
+      id: fe.id,
+      name: fe.name,
+      amount: -fe.amount, // Fixed expenses are always negative
+      date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
+      category: fe.category,
+      type: 'Fixa',
+      accountName: 'N/A',
+    }));
+
+    return [...variableEntries, ...fixedEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [data, selectedMonth, selectedYear]);
+
+  const handleEditClick = (entry: CombinedEntry) => {
+    const originalTransaction = data?.transactions.find(t => t.id === entry.id);
+    if (originalTransaction) {
+      setSelectedTransaction(originalTransaction);
+      setEditTransactionDialogOpen(true);
+    }
   };
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -143,6 +188,7 @@ const Transactions = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Transação</TableHead>
+                  <TableHead>Tipo</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Conta</TableHead>
                   <TableHead className="hidden md:table-cell">Data</TableHead>
@@ -155,41 +201,46 @@ const Transactions = () => {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center">Carregando...</TableCell>
+                    <TableCell colSpan={7} className="text-center">Carregando...</TableCell>
                   </TableRow>
                 )}
                 {error && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-red-500">{error.message}</TableCell>
+                    <TableCell colSpan={7} className="text-center text-red-500">{(error as Error).message}</TableCell>
                   </TableRow>
                 )}
-                {transactions && transactions.map((transaction) => (
-                  <TableRow key={transaction.id}>
-                    <TableCell className="font-medium">{transaction.name}</TableCell>
+                {combinedData.map((entry) => (
+                  <TableRow key={`${entry.type}-${entry.id}`}>
+                    <TableCell className="font-medium">{entry.name}</TableCell>
                     <TableCell>
-                      {transaction.category && <Badge variant="outline">{transaction.category}</Badge>}
+                      <Badge variant={entry.type === 'Fixa' ? 'secondary' : 'outline'}>{entry.type}</Badge>
                     </TableCell>
-                    <TableCell>{transaction.accounts?.name || 'N/A'}</TableCell>
+                    <TableCell>
+                      {entry.category && <Badge variant="outline">{entry.category}</Badge>}
+                    </TableCell>
+                    <TableCell>{entry.accountName}</TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {formatDate(transaction.date)}
+                      {formatDate(entry.date)}
                     </TableCell>
-                    <TableCell className={`text-right ${transaction.amount > 0 ? "text-green-500" : ""}`}>
-                      {formatCurrency(transaction.amount)}
+                    <TableCell className={`text-right ${entry.amount > 0 ? "text-green-500" : ""}`}>
+                      {formatCurrency(entry.amount)}
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button aria-haspopup="true" size="icon" variant="ghost">
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEditClick(transaction)}>Editar</DropdownMenuItem>
-                          <DropdownMenuItem>Excluir</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {entry.type === 'Variável' && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEditClick(entry)}>Editar</DropdownMenuItem>
+                            <DropdownMenuItem>Excluir</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -198,7 +249,7 @@ const Transactions = () => {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Mostrando <strong>{transactions?.length || 0}</strong> de <strong>{transactions?.length || 0}</strong> transações
+              Mostrando <strong>{combinedData.length || 0}</strong> de <strong>{combinedData.length || 0}</strong> movimentações
             </div>
           </CardFooter>
         </Card>

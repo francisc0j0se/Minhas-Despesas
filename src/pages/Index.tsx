@@ -2,10 +2,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
 import SpendingChart from '@/components/SpendingChart';
-import RecentTransactions from '@/components/RecentTransactions';
 import { PlusCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import FixedExpensesCard from '@/components/FixedExpensesCard';
 import { useQuery } from '@tanstack/react-query';
 import AddTransactionDialog from '@/components/AddTransactionDialog';
 
@@ -171,16 +169,8 @@ const Index = () => {
             />
           ))}
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <div className="lg:col-span-4">
-            <SpendingChart data={spendingData} />
-          </div>
-          <div className="lg:col-span-3">
-            <RecentTransactions transactions={(transactions || []).slice(0, 5)} />
-          </div>
-        </div>
         <div className="grid gap-4">
-          <FixedExpensesCard />
+          <SpendingChart data={spendingData} />
         </div>
       </div>
       <AddTransactionDialog 
