@@ -49,7 +49,7 @@ const Settings = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { data: categories, isLoading, error } = useQuery<Category[]>({
-    queryKey: ["categories"],
+    queryKey: ["categories", "list"],
     queryFn: fetchCategories,
   });
 

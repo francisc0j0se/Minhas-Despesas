@@ -37,7 +37,7 @@ export function CategoryCombobox({ value, onChange }: CategoryComboboxProps) {
   const [search, setSearch] = React.useState("");
 
   const { data: categories, isLoading } = useQuery<string[]>({
-    queryKey: ["categories"],
+    queryKey: ["categories", "names"],
     queryFn: fetchCategories,
   });
 
