@@ -6,7 +6,6 @@ import {
   LogOut,
   ArrowDownCircle,
   ArrowUpCircle,
-  Repeat,
   Wallet,
   Package,
 } from 'lucide-react';
@@ -23,7 +22,6 @@ const navItems = [
   { href: '/accounts', icon: Wallet, label: 'Contas' },
   { href: '/despesas', icon: ArrowDownCircle, label: 'Despesas' },
   { href: '/receitas', icon: ArrowUpCircle, label: 'Receitas' },
-  { href: '/despesas-fixas', icon: Repeat, label: 'Despesas Fixas' },
   { href: '/budgets', icon: Package, label: 'Orçamentos' },
 ];
 

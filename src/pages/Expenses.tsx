@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Card,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,10 +28,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, MoreHorizontal, CheckCircle2, Circle } from "lucide-react";
+import { PlusCircle, MoreHorizontal } from "lucide-react";
 import AddTransactionDialog from "@/components/AddTransactionDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { showSuccess, showError } from "@/utils/toast";
 
 interface Transaction {
   id: string;
@@ -49,12 +51,14 @@ interface FixedExpense {
   day_of_month: number;
   category: string | null;
   is_paid: boolean;
+  fixed_expense_id: string;
 }
 
 interface CombinedEntry extends Omit<Transaction, 'accounts' | 'account_id'> {
   type: 'Variável' | 'Fixa';
   accountName: string | null;
   is_paid?: boolean;
+  fixed_expense_id?: string;
 }
 
 const formatCurrency = (value: number) => {
@@ -69,6 +73,7 @@ const formatDate = (dateString: string) => {
 };
 
 const Expenses = () => {
+  const queryClient = useQueryClient();
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
   const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -84,7 +89,7 @@ const Expenses = () => {
       const transactionsPromise = supabase
         .from('transactions')
         .select(`*, accounts (name)`)
-        .lt('amount', 0) // Apenas despesas (débito)
+        .lt('amount', 0)
         .gte('date', startDate)
         .lt('date', endDate);
 
@@ -105,6 +110,30 @@ const Expenses = () => {
     }
   });
 
+  const togglePaidMutation = useMutation({
+    mutationFn: async ({ fixed_expense_id, is_paid }: { fixed_expense_id: string; is_paid: boolean }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado.");
+
+      const { error } = await supabase.from("monthly_expense_status").upsert({
+        user_id: user.id,
+        fixed_expense_id: fixed_expense_id,
+        month: selectedMonth,
+        year: selectedYear,
+        is_paid,
+      }, { onConflict: 'user_id,fixed_expense_id,month,year' });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Status de pagamento atualizado!");
+      queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+    },
+    onError: (error) => {
+      showError(`Erro ao atualizar status: ${error.message}`);
+    },
+  });
+
   const combinedData = useMemo<CombinedEntry[]>(() => {
     if (!data) return [];
 
@@ -123,6 +152,7 @@ const Expenses = () => {
       type: 'Fixa',
       accountName: 'N/A',
       is_paid: fe.is_paid,
+      fixed_expense_id: fe.fixed_expense_id,
     }));
 
     return [...variableEntries, ...fixedEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -212,7 +242,14 @@ const Expenses = () => {
                   <TableRow key={`${entry.type}-${entry.id}`}>
                     <TableCell>
                       {entry.type === 'Fixa' && (
-                        entry.is_paid ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />
+                        <Checkbox
+                          checked={entry.is_paid}
+                          onCheckedChange={(checked) => {
+                            if (entry.fixed_expense_id) {
+                              togglePaidMutation.mutate({ fixed_expense_id: entry.fixed_expense_id, is_paid: !!checked });
+                            }
+                          }}
+                        />
                       )}
                     </TableCell>
                     <TableCell className="font-medium">{entry.name}</TableCell>
