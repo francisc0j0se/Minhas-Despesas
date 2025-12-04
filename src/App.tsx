@@ -7,7 +7,9 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import DashboardLayout from "./components/DashboardLayout";
 import Accounts from "./pages/Accounts";
-import Transactions from "./pages/Transactions";
+import Expenses from "./pages/Expenses";
+import Revenues from "./pages/Revenues";
+import FixedExpenses from "./pages/FixedExpenses";
 import Budgets from "./pages/Budgets";
 import Settings from "./pages/Settings";
 import Login from "./pages/Login";
@@ -27,7 +29,9 @@ const AppRoutes = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/accounts" element={<Accounts />} />
-              <Route path="/transactions" element={<Transactions />} />
+              <Route path="/despesas" element={<Expenses />} />
+              <Route path="/receitas" element={<Revenues />} />
+              <Route path="/despesas-fixas" element={<FixedExpenses />} />
               <Route path="/budgets" element={<Budgets />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />

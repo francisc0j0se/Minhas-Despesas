@@ -1,12 +1,13 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
-  LineChart,
-  Package,
   Settings,
   Users,
-  Wallet,
   LogOut,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  Repeat,
+  Wallet,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -19,7 +20,9 @@ import { supabase } from '@/integrations/supabase/client';
 const navItems = [
   { href: '/', icon: Home, label: 'Painel' },
   { href: '/accounts', icon: Wallet, label: 'Contas' },
-  { href: '/transactions', icon: LineChart, label: 'Transações' },
+  { href: '/despesas', icon: ArrowDownCircle, label: 'Despesas' },
+  { href: '/receitas', icon: ArrowUpCircle, label: 'Receitas' },
+  { href: '/despesas-fixas', icon: Repeat, label: 'Despesas Fixas' },
   { href: '/budgets', icon: Package, label: 'Orçamentos' },
 ];
 

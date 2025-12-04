@@ -66,7 +66,7 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString("pt-BR", { timeZone: 'UTC' });
 };
 
-const Transactions = () => {
+const Expenses = () => {
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
   const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -74,7 +74,7 @@ const Transactions = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['allTransactions', selectedMonth, selectedYear],
+    queryKey: ['allExpenses', selectedMonth, selectedYear],
     queryFn: async () => {
       const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString();
       const endDate = new Date(selectedYear, selectedMonth, 1).toISOString();
@@ -82,6 +82,7 @@ const Transactions = () => {
       const transactionsPromise = supabase
         .from('transactions')
         .select(`*, accounts (name)`)
+        .lt('amount', 0) // Apenas despesas (débito)
         .gte('date', startDate)
         .lt('date', endDate);
 
@@ -114,7 +115,7 @@ const Transactions = () => {
     const fixedEntries: CombinedEntry[] = data.fixedExpenses.map(fe => ({
       id: fe.id,
       name: fe.name,
-      amount: -fe.amount, // Fixed expenses are always negative
+      amount: -fe.amount,
       date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
       category: fe.category,
       type: 'Fixa',
@@ -139,26 +140,20 @@ const Transactions = () => {
     <>
       <div className="flex flex-col gap-4">
         <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Transações</h1>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline">
-              <File className="h-3.5 w-3.5 mr-2" />
-              Exportar
-            </Button>
-            <Button size="sm" onClick={() => setAddTransactionDialogOpen(true)}>
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Adicionar Transação
-            </Button>
-          </div>
+          <h1 className="text-2xl font-bold">Despesas</h1>
+          <Button size="sm" onClick={() => setAddTransactionDialogOpen(true)}>
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Adicionar Despesa
+          </Button>
         </header>
         <Card>
           <CardHeader>
-            <CardTitle>Suas Transações</CardTitle>
+            <CardTitle>Suas Despesas</CardTitle>
             <CardDescription>
-              Visualize e gerencie todas as suas transações aqui.
+              Visualize e gerencie todas as suas saídas aqui.
             </CardDescription>
             <div className="pt-4 flex flex-col md:flex-row gap-4">
-              <Input placeholder="Pesquisar transações..." className="flex-grow" />
+              <Input placeholder="Pesquisar despesas..." className="flex-grow" />
               <div className="flex gap-2">
                 <Select value={String(selectedMonth)} onValueChange={(value) => setSelectedMonth(Number(value))}>
                   <SelectTrigger className="w-full md:w-[180px]">
@@ -187,7 +182,7 @@ const Transactions = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Transação</TableHead>
+                  <TableHead>Despesa</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Conta</TableHead>
@@ -222,7 +217,7 @@ const Transactions = () => {
                     <TableCell className="hidden md:table-cell">
                       {formatDate(entry.date)}
                     </TableCell>
-                    <TableCell className={`text-right ${entry.amount > 0 ? "text-green-500" : ""}`}>
+                    <TableCell className="text-right">
                       {formatCurrency(entry.amount)}
                     </TableCell>
                     <TableCell>
@@ -249,7 +244,7 @@ const Transactions = () => {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Mostrando <strong>{combinedData.length || 0}</strong> de <strong>{combinedData.length || 0}</strong> movimentações
+              Mostrando <strong>{combinedData.length || 0}</strong> de <strong>{combinedData.length || 0}</strong> despesas
             </div>
           </CardFooter>
         </Card>
@@ -267,4 +262,4 @@ const Transactions = () => {
   );
 };
 
-export default Transactions;
+export default Expenses;
