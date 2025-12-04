@@ -8,6 +8,7 @@ import {
   ArrowUpCircle,
   Repeat,
   Wallet,
+  Package,
 } from 'lucide-react';
 import {
   Tooltip,
