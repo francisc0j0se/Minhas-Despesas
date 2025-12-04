@@ -5,6 +5,7 @@ import SpendingChart from '@/components/SpendingChart';
 import RecentTransactions from '@/components/RecentTransactions';
 import { PlusCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import FixedExpensesCard from '@/components/FixedExpensesCard';
 
 interface Transaction {
   id: string;
@@ -95,7 +96,7 @@ const Index = () => {
         month: `${monthNames[parseInt(month, 10)]}`,
         spending: monthlySpending[key]
       };
-    }).slice(-7); // Get last 7 months
+    }).slice(-7);
   };
 
   if (loading) {
@@ -132,6 +133,9 @@ const Index = () => {
         <div className="lg:col-span-3">
           <RecentTransactions transactions={transactions.slice(0, 5)} />
         </div>
+      </div>
+      <div className="grid gap-4">
+        <FixedExpensesCard />
       </div>
     </div>
   );
