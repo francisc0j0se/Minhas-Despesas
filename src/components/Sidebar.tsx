@@ -15,11 +15,11 @@ import {
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/', icon: Home, label: 'Dashboard' },
-  { href: '/accounts', icon: Wallet, label: 'Accounts' },
-  { href: '/transactions', icon: LineChart, label: 'Transactions' },
-  { href: '/budgets', icon: Package, label: 'Budgets' },
-  { href: '/settings', icon: Settings, label: 'Settings' },
+  { href: '/', icon: Home, label: 'Painel' },
+  { href: '/accounts', icon: Wallet, label: 'Contas' },
+  { href: '/transactions', icon: LineChart, label: 'Transações' },
+  { href: '/budgets', icon: Package, label: 'Orçamentos' },
+  { href: '/settings', icon: Settings, label: 'Configurações' },
 ];
 
 const Sidebar = () => {

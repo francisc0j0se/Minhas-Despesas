@@ -14,42 +14,64 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { recentTransactions } from '@/data/mockData';
 
-const RecentTransactions = () => {
+interface Transaction {
+  id: string;
+  name: string;
+  date: string;
+  amount: number;
+  status: string;
+}
+
+interface RecentTransactionsProps {
+  transactions: Transaction[];
+}
+
+const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Transactions</CardTitle>
+        <CardTitle>Transações Recentes</CardTitle>
         <CardDescription>
-          A list of your most recent transactions.
+          Uma lista de suas transações mais recentes.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Transaction</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead>Transação</TableHead>
+              <TableHead className="text-right">Valor</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
-              <TableHead className="hidden md:table-cell">Date</TableHead>
+              <TableHead className="hidden md:table-cell">Data</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {recentTransactions.map((transaction) => (
+            {transactions.map((transaction) => (
               <TableRow key={transaction.id}>
                 <TableCell>
                   <div className="font-medium">{transaction.name}</div>
                 </TableCell>
-                <TableCell className={`text-right ${transaction.amount.startsWith('+') ? 'text-green-500' : ''}`}>
-                  {transaction.amount}
+                <TableCell className={`text-right ${transaction.amount > 0 ? 'text-green-500' : ''}`}>
+                  {formatCurrency(transaction.amount)}
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
                   <Badge variant={transaction.status === 'Completed' ? 'default' : 'secondary'}>
                     {transaction.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="hidden md:table-cell">{transaction.date}</TableCell>
+                <TableCell className="hidden md:table-cell">{formatDate(transaction.date)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

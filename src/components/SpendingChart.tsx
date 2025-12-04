@@ -5,17 +5,20 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { spendingChartData } from '@/data/mockData';
 
-const SpendingChart = () => {
+interface SpendingChartProps {
+  data: { month: string; spending: number }[];
+}
+
+const SpendingChart = ({ data }: SpendingChartProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Spending Overview</CardTitle>
+        <CardTitle>Visão Geral de Gastos</CardTitle>
       </CardHeader>
       <CardContent className="pl-2">
         <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={spendingChartData}>
+          <BarChart data={data}>
             <XAxis
               dataKey="month"
               stroke="#888888"
@@ -28,7 +31,7 @@ const SpendingChart = () => {
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(value) => `$${value}`}
+              tickFormatter={(value) => `R$${value}`}
             />
             <Tooltip
               cursor={{ fill: 'hsl(var(--muted))' }}
@@ -36,6 +39,7 @@ const SpendingChart = () => {
                 backgroundColor: 'hsl(var(--background))',
                 borderColor: 'hsl(var(--border))',
               }}
+              formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
             />
             <Bar dataKey="spending" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
           </BarChart>
