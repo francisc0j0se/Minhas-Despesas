@@ -41,6 +41,9 @@ const Index = () => {
   const now = new Date();
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const monthName = monthNames[now.getMonth()];
+
   const { data: fixedExpenses, isLoading: isLoadingFixedExpenses } = useQuery<MonthlyExpense[]>({
     queryKey: ["monthly_fixed_expenses", month, year],
     queryFn: async () => {
@@ -151,7 +154,7 @@ const Index = () => {
     <>
       <div className="flex flex-col gap-4">
         <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Painel</h1>
+          <h1 className="text-2xl font-bold">Despesas de {monthName} de {year}</h1>
           <Button onClick={() => setAddTransactionDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Transação

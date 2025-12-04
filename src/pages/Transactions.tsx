@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { PlusCircle, MoreHorizontal, File } from "lucide-react";
 import AddTransactionDialog from "@/components/AddTransactionDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Transaction {
   id: string;
@@ -56,10 +57,15 @@ const Transactions = () => {
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
   const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const { data: transactions, isLoading, error } = useQuery<Transaction[]>({
-    queryKey: ['transactionsWithAccount'],
+    queryKey: ['transactionsWithAccount', selectedMonth, selectedYear],
     queryFn: async () => {
+      const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString();
+      const endDate = new Date(selectedYear, selectedMonth, 1).toISOString();
+
       const { data, error } = await supabase
         .from('transactions')
         .select(`
@@ -68,6 +74,8 @@ const Transactions = () => {
             name
           )
         `)
+        .gte('date', startDate)
+        .lt('date', endDate)
         .order('date', { ascending: false });
       if (error) throw new Error(error.message);
       return data as Transaction[];
@@ -78,6 +86,9 @@ const Transactions = () => {
     setSelectedTransaction(transaction);
     setEditTransactionDialogOpen(true);
   };
+
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   return (
     <>
@@ -101,8 +112,30 @@ const Transactions = () => {
             <CardDescription>
               Visualize e gerencie todas as suas transações aqui.
             </CardDescription>
-            <div className="pt-4">
-              <Input placeholder="Pesquisar transações..." />
+            <div className="pt-4 flex flex-col md:flex-row gap-4">
+              <Input placeholder="Pesquisar transações..." className="flex-grow" />
+              <div className="flex gap-2">
+                <Select value={String(selectedMonth)} onValueChange={(value) => setSelectedMonth(Number(value))}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {monthNames.map((month, index) => (
+                      <SelectItem key={month} value={String(index + 1)}>{month}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+                  <SelectTrigger className="w-full md:w-[120px]">
+                    <SelectValue placeholder="Ano" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {years.map(year => (
+                      <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -165,7 +198,7 @@ const Transactions = () => {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Mostrando <strong>1-{transactions?.length || 0}</strong> de <strong>{transactions?.length || 0}</strong> transações
+              Mostrando <strong>{transactions?.length || 0}</strong> de <strong>{transactions?.length || 0}</strong> transações
             </div>
           </CardFooter>
         </Card>
