@@ -9,6 +9,8 @@ import AddTransactionDialog from '@/components/AddTransactionDialog';
 import CategorySpendingChart from '@/components/CategorySpendingChart';
 import UpcomingExpenses from '@/components/UpcomingExpenses';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 interface Transaction {
   id: string;
@@ -31,6 +33,8 @@ const Index = () => {
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [showFixed, setShowFixed] = useState(true);
+  const [showVariable, setShowVariable] = useState(true);
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -66,19 +70,23 @@ const Index = () => {
 
   const calculateSummary = () => {
     const currentTransactions = transactions || [];
-    const totalBalance = currentTransactions.reduce((acc, t) => acc + t.amount, 0);
     const incomeThisMonth = currentTransactions.filter(t => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
+    
     const expensesFromTransactions = currentTransactions.filter(t => t.amount < 0).reduce((acc, t) => acc + t.amount, 0);
     const expensesFromFixed = (fixedExpenses || []).reduce((acc, fe) => acc + fe.amount, 0);
-    const totalExpensesThisMonth = Math.abs(expensesFromTransactions) + expensesFromFixed;
+    const paidFixedExpenses = (fixedExpenses || []).filter(fe => fe.is_paid).reduce((acc, fe) => acc + fe.amount, 0);
+
+    const totalExpensesThisMonth = (showVariable ? Math.abs(expensesFromTransactions) : 0) + (showFixed ? expensesFromFixed : 0);
+    const totalPaidThisMonth = (showVariable ? Math.abs(expensesFromTransactions) : 0) + (showFixed ? paidFixedExpenses : 0);
+    
     const savingsThisMonth = incomeThisMonth - totalExpensesThisMonth;
-    const paidThisMonth = (fixedExpenses || []).filter(fe => fe.is_paid).reduce((acc, fe) => acc + fe.amount, 0);
+    const totalBalance = incomeThisMonth + (showVariable ? expensesFromTransactions : 0) - (showFixed ? expensesFromFixed : 0);
 
     return [
       { title: 'Saldo do Mês', value: formatCurrency(totalBalance), change: '', description: '' },
       { title: 'Receita', value: formatCurrency(incomeThisMonth), change: '', description: 'este mês' },
       { title: 'Despesas', value: formatCurrency(totalExpensesThisMonth), change: '', description: 'este mês' },
-      { title: 'Pagos', value: formatCurrency(paidThisMonth), change: '', description: 'despesas fixas' },
+      { title: 'Pagos', value: formatCurrency(totalPaidThisMonth), change: '', description: 'despesas fixas e variáveis' },
       { title: 'Economia', value: formatCurrency(savingsThisMonth), change: '', description: 'este mês' },
     ];
   };
@@ -87,15 +95,19 @@ const Index = () => {
     const monthlySpending: { [key: string]: number } = {};
     const monthNamesChart = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     
-    (transactions || []).filter(t => t.amount < 0).forEach(t => {
-      const date = new Date(t.date);
-      const monthKey = monthNamesChart[date.getMonth()];
-      monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + Math.abs(t.amount);
-    });
+    if (showVariable) {
+      (transactions || []).filter(t => t.amount < 0).forEach(t => {
+        const date = new Date(t.date);
+        const monthKey = monthNamesChart[date.getMonth()];
+        monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + Math.abs(t.amount);
+      });
+    }
 
-    const fixedExpensesTotal = (fixedExpenses || []).reduce((acc, expense) => acc + expense.amount, 0);
-    const currentMonthName = monthNamesChart[selectedMonth - 1];
-    monthlySpending[currentMonthName] = (monthlySpending[currentMonthName] || 0) + fixedExpensesTotal;
+    if (showFixed) {
+      const fixedExpensesTotal = (fixedExpenses || []).reduce((acc, expense) => acc + expense.amount, 0);
+      const currentMonthName = monthNamesChart[selectedMonth - 1];
+      monthlySpending[currentMonthName] = (monthlySpending[currentMonthName] || 0) + fixedExpensesTotal;
+    }
 
     return Object.keys(monthlySpending).map(key => ({ month: key, spending: monthlySpending[key] }));
   };
@@ -103,15 +115,19 @@ const Index = () => {
   const getCategorySpendingData = () => {
     const categoryTotals: { [key: string]: number } = {};
     
-    (transactions || []).filter(t => t.amount < 0).forEach(t => {
-      const category = t.category || 'Sem Categoria';
-      categoryTotals[category] = (categoryTotals[category] || 0) + Math.abs(t.amount);
-    });
+    if (showVariable) {
+      (transactions || []).filter(t => t.amount < 0).forEach(t => {
+        const category = t.category || 'Sem Categoria';
+        categoryTotals[category] = (categoryTotals[category] || 0) + Math.abs(t.amount);
+      });
+    }
 
-    (fixedExpenses || []).forEach(fe => {
-      const category = fe.category || 'Sem Categoria';
-      categoryTotals[category] = (categoryTotals[category] || 0) + fe.amount;
-    });
+    if (showFixed) {
+      (fixedExpenses || []).forEach(fe => {
+        const category = fe.category || 'Sem Categoria';
+        categoryTotals[category] = (categoryTotals[category] || 0) + fe.amount;
+      });
+    }
 
     return Object.keys(categoryTotals).map(name => ({ name, value: categoryTotals[name] }));
   };
@@ -149,7 +165,19 @@ const Index = () => {
     <>
       <div className="flex flex-col gap-4">
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold">Painel de {monthName} de {selectedYear}</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Painel de {monthName} de {selectedYear}</h1>
+            <div className="flex items-center space-x-4 mt-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="fixed" checked={showFixed} onCheckedChange={(checked) => setShowFixed(!!checked)} />
+                <Label htmlFor="fixed">Despesas Fixas</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="variable" checked={showVariable} onCheckedChange={(checked) => setShowVariable(!!checked)} />
+                <Label htmlFor="variable">Despesas Variáveis</Label>
+              </div>
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <div className="flex gap-2">
               <Select value={String(selectedMonth)} onValueChange={(value) => setSelectedMonth(Number(value))}>
