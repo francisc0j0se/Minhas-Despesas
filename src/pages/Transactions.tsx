@@ -29,6 +29,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { PlusCircle, MoreHorizontal, File } from "lucide-react";
 import AddTransactionDialog from "@/components/AddTransactionDialog";
+import EditTransactionDialog from "@/components/EditTransactionDialog";
+
+interface Transaction {
+  id: string;
+  name: string;
+  amount: number;
+  date: string;
+  account_id: string;
+  category: string | null;
+  accounts: { name: string } | null;
+}
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -43,8 +54,10 @@ const formatDate = (dateString: string) => {
 
 const Transactions = () => {
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
+  const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  const { data: transactions, isLoading, error } = useQuery({
+  const { data: transactions, isLoading, error } = useQuery<Transaction[]>({
     queryKey: ['transactionsWithAccount'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -57,9 +70,14 @@ const Transactions = () => {
         `)
         .order('date', { ascending: false });
       if (error) throw new Error(error.message);
-      return data;
+      return data as Transaction[];
     }
   });
+
+  const handleEditClick = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setEditTransactionDialogOpen(true);
+  };
 
   return (
     <>
@@ -112,7 +130,7 @@ const Transactions = () => {
                     <TableCell colSpan={6} className="text-center text-red-500">{error.message}</TableCell>
                   </TableRow>
                 )}
-                {transactions && transactions.map((transaction: any) => (
+                {transactions && transactions.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell className="font-medium">{transaction.name}</TableCell>
                     <TableCell>
@@ -135,7 +153,7 @@ const Transactions = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                          <DropdownMenuItem>Editar</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(transaction)}>Editar</DropdownMenuItem>
                           <DropdownMenuItem>Excluir</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -155,6 +173,11 @@ const Transactions = () => {
       <AddTransactionDialog 
         isOpen={isAddTransactionDialogOpen} 
         onOpenChange={setAddTransactionDialogOpen} 
+      />
+      <EditTransactionDialog 
+        isOpen={isEditTransactionDialogOpen} 
+        onOpenChange={setEditTransactionDialogOpen} 
+        transaction={selectedTransaction}
       />
     </>
   );
