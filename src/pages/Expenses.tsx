@@ -2,35 +2,26 @@ import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Trash2 } from "lucide-react";
 import AddTransactionDialog from "@/components/AddTransactionDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
+import EditMonthlyExpenseDialog from "@/components/EditMonthlyExpenseDialog";
+import EditFixedExpenseDialog from "@/components/EditFixedExpenseDialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showSuccess, showError } from "@/utils/toast";
 
@@ -76,7 +67,12 @@ const Expenses = () => {
   const queryClient = useQueryClient();
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
   const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
+  const [isEditFixedExpenseDialogOpen, setIsEditFixedExpenseDialogOpen] = useState(false);
+  const [isEditMonthlyOverrideDialogOpen, setIsEditMonthlyOverrideDialogOpen] = useState(false);
+
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [selectedFixedExpense, setSelectedFixedExpense] = useState<FixedExpense | null>(null);
+
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
@@ -134,6 +130,20 @@ const Expenses = () => {
     },
   });
 
+  const deleteFixedExpenseMutation = useMutation({
+    mutationFn: async (expenseId: string) => {
+      const { error } = await supabase.from("fixed_expenses").delete().eq("id", expenseId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Despesa fixa excluída com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+    },
+    onError: (error) => {
+      showError(`Erro ao excluir despesa: ${error.message}`);
+    },
+  });
+
   const combinedData = useMemo<CombinedEntry[]>(() => {
     if (!data) return [];
 
@@ -158,11 +168,27 @@ const Expenses = () => {
     return [...variableEntries, ...fixedEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [data, selectedMonth, selectedYear]);
 
-  const handleEditClick = (entry: CombinedEntry) => {
+  const handleEditVariableClick = (entry: CombinedEntry) => {
     const originalTransaction = data?.transactions.find(t => t.id === entry.id);
     if (originalTransaction) {
       setSelectedTransaction(originalTransaction);
       setEditTransactionDialogOpen(true);
+    }
+  };
+
+  const handleEditFixedClick = (entry: CombinedEntry) => {
+    const originalExpense = data?.fixedExpenses.find(fe => fe.id === entry.id);
+    if (originalExpense) {
+      setSelectedFixedExpense(originalExpense);
+      setIsEditFixedExpenseDialogOpen(true);
+    }
+  };
+
+  const handleOverrideClick = (entry: CombinedEntry) => {
+    const originalExpense = data?.fixedExpenses.find(fe => fe.id === entry.id);
+    if (originalExpense) {
+      setSelectedFixedExpense(originalExpense);
+      setIsEditMonthlyOverrideDialogOpen(true);
     }
   };
 
@@ -239,7 +265,7 @@ const Expenses = () => {
                   </TableRow>
                 )}
                 {combinedData.map((entry) => (
-                  <TableRow key={`${entry.type}-${entry.id}`}>
+                  <TableRow key={`${entry.type}-${entry.id}`} data-paid={entry.type === 'Fixa' && entry.is_paid} className="data-[paid=true]:bg-green-50 dark:data-[paid=true]:bg-green-950/50">
                     <TableCell>
                       {entry.type === 'Fixa' && (
                         <Checkbox
@@ -267,8 +293,7 @@ const Expenses = () => {
                       {formatCurrency(entry.amount)}
                     </TableCell>
                     <TableCell>
-                      {entry.type === 'Variável' && (
-                        <DropdownMenu>
+                       <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button aria-haspopup="true" size="icon" variant="ghost">
                               <MoreHorizontal className="h-4 w-4" />
@@ -277,11 +302,42 @@ const Expenses = () => {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleEditClick(entry)}>Editar</DropdownMenuItem>
-                            <DropdownMenuItem>Excluir</DropdownMenuItem>
+                            {entry.type === 'Variável' ? (
+                              <>
+                                <DropdownMenuItem onClick={() => handleEditVariableClick(entry)}>Editar</DropdownMenuItem>
+                                <DropdownMenuItem className="text-red-600">Excluir</DropdownMenuItem>
+                              </>
+                            ) : (
+                              <>
+                                <DropdownMenuItem onClick={() => handleOverrideClick(entry)}>Alterar Valor do Mês</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleEditFixedClick(entry)}>Editar Despesa Padrão</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Excluir
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja excluir a despesa fixa "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteFixedExpenseMutation.mutate(entry.id)} className="bg-red-600 hover:bg-red-700">
+                                        Excluir
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -303,6 +359,18 @@ const Expenses = () => {
         isOpen={isEditTransactionDialogOpen} 
         onOpenChange={setEditTransactionDialogOpen} 
         transaction={selectedTransaction}
+      />
+      <EditFixedExpenseDialog
+        isOpen={isEditFixedExpenseDialogOpen}
+        onOpenChange={setIsEditFixedExpenseDialogOpen}
+        expense={selectedFixedExpense}
+      />
+      <EditMonthlyExpenseDialog
+        isOpen={isEditMonthlyOverrideDialogOpen}
+        onOpenChange={setIsEditMonthlyOverrideDialogOpen}
+        expense={selectedFixedExpense}
+        month={selectedMonth}
+        year={selectedYear}
       />
     </>
   );
