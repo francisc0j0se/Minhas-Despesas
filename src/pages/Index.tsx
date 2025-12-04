@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import AddTransactionDialog from '@/components/AddTransactionDialog';
 import CategorySpendingChart from '@/components/CategorySpendingChart';
 import UpcomingExpenses from '@/components/UpcomingExpenses';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Transaction {
   id: string;
@@ -28,18 +29,18 @@ interface MonthlyExpense {
 
 const Index = () => {
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  const now = new Date();
-  const month = now.getMonth() + 1;
-  const year = now.getFullYear();
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const monthName = monthNames[now.getMonth()];
+  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  const monthName = monthNames[selectedMonth - 1];
 
   const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
-    queryKey: ['transactions', month, year],
+    queryKey: ['transactions', selectedMonth, selectedYear],
     queryFn: async () => {
-      const startDate = new Date(year, month - 1, 1).toISOString();
-      const endDate = new Date(year, month, 1).toISOString();
+      const startDate = new Date(selectedYear, selectedMonth - 1, 1).toISOString();
+      const endDate = new Date(selectedYear, selectedMonth, 1).toISOString();
       const { data, error } = await supabase
         .from('transactions')
         .select('id, name, date, amount, category')
@@ -51,9 +52,9 @@ const Index = () => {
   });
 
   const { data: fixedExpenses, isLoading: isLoadingFixedExpenses } = useQuery<MonthlyExpense[]>({
-    queryKey: ["monthly_fixed_expenses", month, year],
+    queryKey: ["monthly_fixed_expenses", selectedMonth, selectedYear],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_monthly_fixed_expenses', { p_month: month, p_year: year });
+      const { data, error } = await supabase.rpc('get_monthly_fixed_expenses', { p_month: selectedMonth, p_year: selectedYear });
       if (error) throw new Error(error.message);
       return data || [];
     },
@@ -71,29 +72,29 @@ const Index = () => {
     const expensesFromFixed = (fixedExpenses || []).reduce((acc, fe) => acc + fe.amount, 0);
     const totalExpensesThisMonth = Math.abs(expensesFromTransactions) + expensesFromFixed;
     const savingsThisMonth = incomeThisMonth - totalExpensesThisMonth;
+    const paidThisMonth = (fixedExpenses || []).filter(fe => fe.is_paid).reduce((acc, fe) => acc + fe.amount, 0);
 
     return [
       { title: 'Saldo do Mês', value: formatCurrency(totalBalance), change: '', description: '' },
       { title: 'Receita', value: formatCurrency(incomeThisMonth), change: '', description: 'este mês' },
       { title: 'Despesas', value: formatCurrency(totalExpensesThisMonth), change: '', description: 'este mês' },
+      { title: 'Pagos', value: formatCurrency(paidThisMonth), change: '', description: 'despesas fixas' },
       { title: 'Economia', value: formatCurrency(savingsThisMonth), change: '', description: 'este mês' },
     ];
   };
 
   const getSpendingChartData = () => {
-    // This logic can be simplified or removed if the main chart is replaced by category chart
-    // For now, let's keep it as a general spending overview
     const monthlySpending: { [key: string]: number } = {};
-    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const monthNamesChart = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     
     (transactions || []).filter(t => t.amount < 0).forEach(t => {
       const date = new Date(t.date);
-      const monthKey = monthNames[date.getMonth()];
+      const monthKey = monthNamesChart[date.getMonth()];
       monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + Math.abs(t.amount);
     });
 
     const fixedExpensesTotal = (fixedExpenses || []).reduce((acc, expense) => acc + expense.amount, 0);
-    const currentMonthName = monthNames[now.getMonth()];
+    const currentMonthName = monthNamesChart[selectedMonth - 1];
     monthlySpending[currentMonthName] = (monthlySpending[currentMonthName] || 0) + fixedExpensesTotal;
 
     return Object.keys(monthlySpending).map(key => ({ month: key, spending: monthlySpending[key] }));
@@ -116,6 +117,7 @@ const Index = () => {
   };
 
   const getUpcomingExpenses = () => {
+    const now = new Date();
     const today = now.getDate();
     const nextWeek = new Date();
     nextWeek.setDate(today + 7);
@@ -125,7 +127,6 @@ const Index = () => {
       .filter(fe => {
         const dueDate = fe.day_of_month;
         if (nextWeek.getMonth() !== now.getMonth()) {
-          // Handle month rollover
           return dueDate >= today || dueDate <= nextWeek.getDate();
         }
         return dueDate >= today && dueDate <= nextWeek.getDate();
@@ -147,14 +148,38 @@ const Index = () => {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <header className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Painel de {monthName} de {year}</h1>
-          <Button onClick={() => setAddTransactionDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Transação
-          </Button>
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold">Painel de {monthName} de {selectedYear}</h1>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="flex gap-2">
+              <Select value={String(selectedMonth)} onValueChange={(value) => setSelectedMonth(Number(value))}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="Mês" />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthNames.map((month, index) => (
+                    <SelectItem key={month} value={String(index + 1)}>{month}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(selectedYear)} onValueChange={(value) => setSelectedYear(Number(value))}>
+                <SelectTrigger className="w-full sm:w-[120px]">
+                  <SelectValue placeholder="Ano" />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map(year => (
+                    <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={() => setAddTransactionDialogOpen(true)} className="w-full sm:w-auto">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Adicionar Transação
+            </Button>
+          </div>
         </header>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {summaryCards.map((card) => (
             <StatCard
               key={card.title}
