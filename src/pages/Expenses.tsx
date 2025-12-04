@@ -207,7 +207,7 @@ const Expenses = () => {
         </header>
         <Card>
           <CardHeader>
-            <CardTitle>Suas Despesas</CardTitle>
+            <CardTitle>Suas Despesas de {monthNames[selectedMonth - 1]} de {selectedYear}</CardTitle>
             <CardDescription>
               Visualize e gerencie todas as suas saídas aqui.
             </CardDescription>
