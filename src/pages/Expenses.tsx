@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, MoreHorizontal, File } from "lucide-react";
+import { PlusCircle, MoreHorizontal, CheckCircle2, Circle } from "lucide-react";
 import AddTransactionDialog from "@/components/AddTransactionDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,11 +48,13 @@ interface FixedExpense {
   amount: number;
   day_of_month: number;
   category: string | null;
+  is_paid: boolean;
 }
 
 interface CombinedEntry extends Omit<Transaction, 'accounts' | 'account_id'> {
   type: 'Variável' | 'Fixa';
   accountName: string | null;
+  is_paid?: boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -120,6 +122,7 @@ const Expenses = () => {
       category: fe.category,
       type: 'Fixa',
       accountName: 'N/A',
+      is_paid: fe.is_paid,
     }));
 
     return [...variableEntries, ...fixedEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -182,6 +185,7 @@ const Expenses = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[50px]">Status</TableHead>
                   <TableHead>Despesa</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Categoria</TableHead>
@@ -196,16 +200,21 @@ const Expenses = () => {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center">Carregando...</TableCell>
+                    <TableCell colSpan={8} className="text-center">Carregando...</TableCell>
                   </TableRow>
                 )}
                 {error && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-red-500">{(error as Error).message}</TableCell>
+                    <TableCell colSpan={8} className="text-center text-red-500">{(error as Error).message}</TableCell>
                   </TableRow>
                 )}
                 {combinedData.map((entry) => (
                   <TableRow key={`${entry.type}-${entry.id}`}>
+                    <TableCell>
+                      {entry.type === 'Fixa' && (
+                        entry.is_paid ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{entry.name}</TableCell>
                     <TableCell>
                       <Badge variant={entry.type === 'Fixa' ? 'secondary' : 'outline'}>{entry.type}</Badge>
