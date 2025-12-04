@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
 import SpendingChart from '@/components/SpendingChart';
@@ -6,6 +6,8 @@ import RecentTransactions from '@/components/RecentTransactions';
 import { PlusCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import FixedExpensesCard from '@/components/FixedExpensesCard';
+import { useQuery } from '@tanstack/react-query';
+import AddTransactionDialog from '@/components/AddTransactionDialog';
 
 interface Transaction {
   id: string;
@@ -15,27 +17,38 @@ interface Transaction {
   status: string;
 }
 
-const Index = () => {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+interface MonthlyExpense {
+  id: string;
+  name: string;
+  amount: number;
+}
 
-  useEffect(() => {
-    const fetchTransactions = async () => {
+const Index = () => {
+  const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
+
+  const { data: transactions, isLoading: isLoadingTransactions } = useQuery<Transaction[]>({
+    queryKey: ['transactions'],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .order('date', { ascending: false });
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+  });
 
-      if (error) {
-        console.error('Erro ao buscar transações:', error);
-      } else if (data) {
-        setTransactions(data);
-      }
-      setLoading(false);
-    };
-
-    fetchTransactions();
-  }, []);
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const { data: fixedExpenses, isLoading: isLoadingFixedExpenses } = useQuery<MonthlyExpense[]>({
+    queryKey: ["monthly_fixed_expenses", month, year],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_monthly_fixed_expenses', { p_month: month, p_year: year });
+      if (error) throw new Error(error.message);
+      return data || [];
+    },
+  });
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -45,32 +58,37 @@ const Index = () => {
   };
 
   const calculateSummary = () => {
-    const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
+    const currentTransactions = transactions || [];
 
-    const totalBalance = transactions.reduce((acc, t) => acc + t.amount, 0);
+    const totalBalance = currentTransactions.reduce((acc, t) => acc + t.amount, 0);
     
-    const incomeThisMonth = transactions
+    const incomeThisMonth = currentTransactions
       .filter(t => {
         const tDate = new Date(t.date);
         return t.amount > 0 && tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
       })
       .reduce((acc, t) => acc + t.amount, 0);
 
-    const expensesThisMonth = transactions
+    const expensesThisMonthFromTransactions = currentTransactions
       .filter(t => {
         const tDate = new Date(t.date);
         return t.amount < 0 && tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear;
       })
       .reduce((acc, t) => acc + t.amount, 0);
       
-    const savingsThisMonth = incomeThisMonth + expensesThisMonth;
+    const expensesThisMonthFromFixed = fixedExpenses
+      ? fixedExpenses.reduce((acc, fe) => acc + fe.amount, 0)
+      : 0;
+
+    const totalExpensesThisMonth = Math.abs(expensesThisMonthFromTransactions) + expensesThisMonthFromFixed;
+    const savingsThisMonth = incomeThisMonth - totalExpensesThisMonth;
 
     return [
       { title: 'Saldo Total', value: formatCurrency(totalBalance), change: '', description: '' },
       { title: 'Receita', value: formatCurrency(incomeThisMonth), change: '', description: 'este mês' },
-      { title: 'Despesas', value: formatCurrency(Math.abs(expensesThisMonth)), change: '', description: 'este mês' },
+      { title: 'Despesas', value: formatCurrency(totalExpensesThisMonth), change: '', description: 'este mês' },
       { title: 'Economia', value: formatCurrency(savingsThisMonth), change: '', description: 'este mês' },
     ];
   };
@@ -79,7 +97,7 @@ const Index = () => {
     const monthlySpending: { [key: string]: number } = {};
     const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-    transactions.forEach(t => {
+    (transactions || []).forEach(t => {
       if (t.amount < 0) {
         const date = new Date(t.date);
         const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
@@ -99,7 +117,9 @@ const Index = () => {
     }).slice(-7);
   };
 
-  if (loading) {
+  const isLoading = isLoadingTransactions || isLoadingFixedExpenses;
+
+  if (isLoading) {
     return <div>Carregando...</div>;
   }
 
@@ -107,37 +127,43 @@ const Index = () => {
   const spendingData = getSpendingChartData();
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Painel</h1>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Adicionar Transação
-        </Button>
-      </header>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {summaryCards.map((card) => (
-          <StatCard
-            key={card.title}
-            title={card.title}
-            value={card.value}
-            change={card.change}
-            description={card.description}
-          />
-        ))}
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <div className="lg:col-span-4">
-          <SpendingChart data={spendingData} />
+    <>
+      <div className="flex flex-col gap-4">
+        <header className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Painel</h1>
+          <Button onClick={() => setAddTransactionDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Transação
+          </Button>
+        </header>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {summaryCards.map((card) => (
+            <StatCard
+              key={card.title}
+              title={card.title}
+              value={card.value}
+              change={card.change}
+              description={card.description}
+            />
+          ))}
         </div>
-        <div className="lg:col-span-3">
-          <RecentTransactions transactions={transactions.slice(0, 5)} />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <div className="lg:col-span-4">
+            <SpendingChart data={spendingData} />
+          </div>
+          <div className="lg:col-span-3">
+            <RecentTransactions transactions={(transactions || []).slice(0, 5)} />
+          </div>
+        </div>
+        <div className="grid gap-4">
+          <FixedExpensesCard />
         </div>
       </div>
-      <div className="grid gap-4">
-        <FixedExpensesCard />
-      </div>
-    </div>
+      <AddTransactionDialog 
+        isOpen={isAddTransactionDialogOpen} 
+        onOpenChange={setAddTransactionDialogOpen} 
+      />
+    </>
   );
 };
 
