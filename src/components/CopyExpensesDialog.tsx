@@ -29,10 +29,13 @@ interface CopyExpensesDialogProps {
 }
 
 const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
 const CopyExpensesDialog = ({ isOpen, onOpenChange, currentMonth, currentYear }: CopyExpensesDialogProps) => {
   const queryClient = useQueryClient();
+  
+  const currentFullYear = new Date().getFullYear();
+  const years = Array.from({ length: 6 }, (_, i) => currentFullYear - 3 + i).sort((a, b) => b - a);
+
   const { handleSubmit, control, formState: { errors } } = useForm<z.infer<typeof copySchema>>({
     resolver: zodResolver(copySchema),
     defaultValues: {
