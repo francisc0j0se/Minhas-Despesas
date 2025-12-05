@@ -1,4 +1,4 @@
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 import {
   Card,
   CardContent,
@@ -11,9 +11,11 @@ interface CategorySpendingChartProps {
   data: { name: string; value: number }[];
 }
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1919', '#8884d8', '#82ca9d'];
+
 const CategorySpendingChart = ({ data }: CategorySpendingChartProps) => {
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Despesas por Categoria</CardTitle>
         <CardDescription>Distribuição dos seus gastos no mês atual.</CardDescription>
@@ -44,7 +46,11 @@ const CategorySpendingChart = ({ data }: CategorySpendingChartProps) => {
                 }}
                 formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
               />
-              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {data.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         ) : (

@@ -12,7 +12,7 @@ interface SpendingChartProps {
 
 const SpendingChart = ({ data }: SpendingChartProps) => {
   return (
-    <Card>
+    <Card className="h-full">
       <CardHeader>
         <CardTitle>Visão Geral de Gastos</CardTitle>
       </CardHeader>
