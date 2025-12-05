@@ -120,11 +120,11 @@ const Index = () => {
     const totalBalance = incomeThisMonth + (showVariable ? expensesFromTransactions : 0) - (showFixed ? expensesFromFixed : 0);
 
     return [
-      { title: 'Saldo do Mês', value: formatCurrency(totalBalance), description: `Balanço de ${monthName}`, icon: Wallet },
-      { title: 'Receita', value: formatCurrency(incomeThisMonth), description: 'Total de entradas no mês', icon: TrendingUp },
-      { title: 'Despesas', value: formatCurrency(totalExpensesThisMonth), description: 'Total de saídas no mês', icon: TrendingDown },
+      { title: 'Saldo do Mês', value: formatCurrency(totalBalance), description: `Balanço de ${monthName}`, icon: Wallet, valueClassName: totalBalance >= 0 ? 'text-green-500' : 'text-red-500' },
+      { title: 'Receita', value: formatCurrency(incomeThisMonth), description: 'Total de entradas no mês', icon: TrendingUp, valueClassName: 'text-green-500' },
+      { title: 'Despesas', value: formatCurrency(totalExpensesThisMonth), description: 'Total de saídas no mês', icon: TrendingDown, valueClassName: 'text-red-500' },
       { title: 'Pagos', value: formatCurrency(totalPaidThisMonth), description: 'Total pago no mês', icon: CheckCircle },
-      { title: 'Economia', value: formatCurrency(savingsThisMonth), description: 'Receita - Despesas', icon: PiggyBank },
+      { title: 'Economia', value: formatCurrency(savingsThisMonth), description: 'Receita - Despesas', icon: PiggyBank, valueClassName: savingsThisMonth >= 0 ? 'text-green-500' : 'text-red-500' },
     ];
   };
 
@@ -284,6 +284,7 @@ const Index = () => {
               value={card.value}
               icon={card.icon}
               description={card.description}
+              valueClassName={card.valueClassName}
             />
           ))}
         </div>
