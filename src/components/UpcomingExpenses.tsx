@@ -44,7 +44,7 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
           Despesas a Vencer
         </CardTitle>
         <CardDescription>
-          Contas fixas pendentes de pagamento neste mês.
+          Contas fixas com vencimento nos próximos 7 dias.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -68,7 +68,7 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
             </TableBody>
           </Table>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma despesa pendente para este mês.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma despesa vencendo na próxima semana.</p>
         )}
       </CardContent>
       {expenses && expenses.length > 0 && (

@@ -178,15 +178,28 @@ const Index = () => {
     const overdue: MonthlyExpense[] = [];
     const upcoming: MonthlyExpense[] = [];
     const now = new Date();
-    const today = (now.getFullYear() === selectedYear && now.getMonth() + 1 === selectedMonth) ? now.getDate() : 32;
+    const isCurrentMonth = now.getFullYear() === selectedYear && now.getMonth() + 1 === selectedMonth;
+    
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     const unpaidExpenses = (monthlyFixedExpenses || []).filter(fe => !fe.is_paid);
 
     for (const expense of unpaidExpenses) {
-      if (expense.day_of_month < today) {
+      const expenseDueDate = new Date(selectedYear, selectedMonth - 1, expense.day_of_month);
+
+      if (isCurrentMonth && expenseDueDate < startOfToday) {
         overdue.push(expense);
       } else {
-        upcoming.push(expense);
+        if (isCurrentMonth) {
+          const sevenDaysFromNow = new Date(startOfToday);
+          sevenDaysFromNow.setDate(startOfToday.getDate() + 7);
+
+          if (expenseDueDate < sevenDaysFromNow) {
+            upcoming.push(expense);
+          }
+        } else {
+          upcoming.push(expense);
+        }
       }
     }
 
