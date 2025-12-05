@@ -1,7 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 
+const pageTitles: { [key: string]: string } = {
+  '/': 'Painel',
+  '/accounts': 'Contas',
+  '/despesas': 'Despesas',
+  '/receitas': 'Receitas',
+  '/budgets': 'Orçamentos',
+  '/settings': 'Configurações',
+};
+
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    const pageTitle = pageTitles[path] || 'Página não encontrada';
+    document.title = `Minhas Despesas | ${pageTitle}`;
+  }, [location.pathname]);
+
   return (
     <div className="flex min-h-screen w-full bg-muted/40">
       <Sidebar />
