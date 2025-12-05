@@ -89,9 +89,9 @@ const Revenues = () => {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Receitas</h1>
-          <Button size="sm" onClick={() => setAddRevenueDialogOpen(true)}>
+          <Button size="sm" onClick={() => setAddRevenueDialogOpen(true)} className="w-full sm:w-auto">
             <PlusCircle className="h-4 w-4 mr-2" />
             Adicionar Receita
           </Button>

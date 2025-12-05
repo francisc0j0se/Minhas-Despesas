@@ -251,16 +251,16 @@ const Expenses = () => {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Despesas</h1>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsCopyDialogOpen(true)}>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" size="sm" onClick={() => setIsCopyDialogOpen(true)} className="flex-1 sm:flex-grow-0">
               <Copy className="h-4 w-4 mr-2" />
               Copiar Mês
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm">
+                <Button size="sm" className="flex-1 sm:flex-grow-0">
                   <PlusCircle className="h-4 w-4 mr-2" />
                   Adicionar Despesa
                 </Button>

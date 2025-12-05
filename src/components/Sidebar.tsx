@@ -2,7 +2,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
   Settings,
-  Users,
   LogOut,
   ArrowDownCircle,
   ArrowUpCircle,
@@ -16,6 +15,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { Logo } from './Logo';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Painel' },
@@ -38,11 +38,11 @@ const Sidebar = () => {
     <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
       <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
         <Link
-          to="#"
+          to="/"
           className="group flex h-9 w-9 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:h-8 md:w-8 md:text-base"
         >
-          <Users className="h-4 w-4 transition-all group-hover:scale-110" />
-          <span className="sr-only">Finance Inc</span>
+          <Logo className="h-6 w-6" />
+          <span className="sr-only">Minhas Despesas</span>
         </Link>
         {navItems.map((item) => (
           <Tooltip key={item.href}>

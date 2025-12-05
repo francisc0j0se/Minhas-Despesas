@@ -50,9 +50,9 @@ const Accounts = () => {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Contas</h1>
-          <Button onClick={() => setIsAddAccountDialogOpen(true)}>
+          <Button onClick={() => setIsAddAccountDialogOpen(true)} className="w-full sm:w-auto">
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Conta
           </Button>
