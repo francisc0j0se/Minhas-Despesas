@@ -4,6 +4,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from '@/components/ui/card';
 import {
   Table,
@@ -31,6 +32,8 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
       currency: 'BRL',
     }).format(value);
   };
+
+  const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
   return (
     <Card>
@@ -64,6 +67,13 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
           <p className="text-sm text-muted-foreground text-center py-4">Nenhuma despesa vencendo na próxima semana.</p>
         )}
       </CardContent>
+      {expenses && expenses.length > 0 && (
+        <CardFooter className="flex justify-end">
+          <div className="text-lg font-bold">
+            Total: {formatCurrency(totalAmount)}
+          </div>
+        </CardFooter>
+      )}
     </Card>
   );
 };
