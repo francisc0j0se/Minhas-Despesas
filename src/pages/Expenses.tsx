@@ -141,6 +141,9 @@ const Expenses = () => {
 
       return { previousData };
     },
+    onSuccess: () => {
+      showSuccess("Status de pagamento atualizado!");
+    },
     onError: (err, newData, context) => {
       if (context?.previousData) {
         queryClient.setQueryData(['allExpenses', selectedMonth, selectedYear], context.previousData);
@@ -148,7 +151,8 @@ const Expenses = () => {
       showError(`Erro ao atualizar status: ${(err as Error).message}`);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
+      queryClient.invalidateQueries({ queryKey: ["monthly_fixed_expenses"] });
     },
   });
 
