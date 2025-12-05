@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,9 +38,17 @@ const transactionSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
   amount: z.coerce.number().positive("O valor deve ser um número positivo."),
   date: z.date({ required_error: "A data é obrigatória." }),
-  account_id: z.string().uuid("Selecione uma conta válida."),
+  account_id: z.string().uuid("Selecione uma conta válida.").optional().nullable(),
   category: z.string().optional(),
   type: z.enum(['income', 'expense'], { required_error: "Selecione o tipo da transação." }),
+}).refine((data) => {
+  if (data.type === 'income' && !data.account_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: "A conta é obrigatória para receitas.",
+  path: ["account_id"],
 });
 
 interface AddTransactionDialogProps {
@@ -76,6 +84,11 @@ const AddTransactionDialog = ({ isOpen, onOpenChange }: AddTransactionDialogProp
   const { data: accounts, isLoading: isLoadingAccounts } = useQuery({
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
+  });
+
+  const transactionType = useWatch({
+    control,
+    name: "type",
   });
 
   const addTransactionMutation = useMutation({
@@ -162,7 +175,7 @@ const AddTransactionDialog = ({ isOpen, onOpenChange }: AddTransactionDialogProp
               render={({ field }) => (
                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                   <SelectTrigger disabled={isLoadingAccounts}>
-                    <SelectValue placeholder={isLoadingAccounts ? "Carregando..." : "Selecione uma conta"} />
+                    <SelectValue placeholder={isLoadingAccounts ? "Carregando..." : (transactionType === 'income' ? "Selecione uma conta" : "Selecione (opcional)")} />
                   </SelectTrigger>
                   <SelectContent>
                     {accounts?.map(account => (
