@@ -125,34 +125,13 @@ const Expenses = () => {
 
       if (error) throw error;
     },
-    onMutate: async (newData) => {
-      await queryClient.cancelQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
-      const previousData = queryClient.getQueryData<{ transactions: Transaction[], fixedExpenses: FixedExpense[] }>(['allExpenses', selectedMonth, selectedYear]);
-
-      queryClient.setQueryData(['allExpenses', selectedMonth, selectedYear], (oldData: any) => {
-        if (!oldData) return oldData;
-        const newFixedExpenses = oldData.fixedExpenses.map((expense: FixedExpense) =>
-          expense.fixed_expense_id === newData.fixed_expense_id
-            ? { ...expense, is_paid: newData.is_paid }
-            : expense
-        );
-        return { ...oldData, fixedExpenses: newFixedExpenses };
-      });
-
-      return { previousData };
-    },
     onSuccess: () => {
       showSuccess("Status de pagamento atualizado!");
-    },
-    onError: (err, newData, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(['allExpenses', selectedMonth, selectedYear], context.previousData);
-      }
-      showError(`Erro ao atualizar status: ${(err as Error).message}`);
-    },
-    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
       queryClient.invalidateQueries({ queryKey: ["monthly_fixed_expenses", selectedMonth, selectedYear] });
+    },
+    onError: (err) => {
+      showError(`Erro ao atualizar status: ${(err as Error).message}`);
     },
   });
 
