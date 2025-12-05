@@ -14,7 +14,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, MoreHorizontal, Trash2 } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown } from "lucide-react";
 import AddTransactionDialog from "@/components/AddTransactionDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
 import EditMonthlyExpenseDialog from "@/components/EditMonthlyExpenseDialog";
@@ -63,6 +63,8 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString("pt-BR", { timeZone: 'UTC' });
 };
 
+type SortableKeys = keyof CombinedEntry;
+
 const Expenses = () => {
   const queryClient = useQueryClient();
   const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
@@ -75,6 +77,8 @@ const Expenses = () => {
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['allExpenses', selectedMonth, selectedYear],
@@ -121,12 +125,30 @@ const Expenses = () => {
 
       if (error) throw error;
     },
-    onSuccess: () => {
-      showSuccess("Status de pagamento atualizado!");
-      queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+    onMutate: async (newData) => {
+      await queryClient.cancelQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+      const previousData = queryClient.getQueryData<{ transactions: Transaction[], fixedExpenses: FixedExpense[] }>(['allExpenses', selectedMonth, selectedYear]);
+
+      queryClient.setQueryData(['allExpenses', selectedMonth, selectedYear], (oldData: any) => {
+        if (!oldData) return oldData;
+        const newFixedExpenses = oldData.fixedExpenses.map((expense: FixedExpense) =>
+          expense.fixed_expense_id === newData.fixed_expense_id
+            ? { ...expense, is_paid: newData.is_paid }
+            : expense
+        );
+        return { ...oldData, fixedExpenses: newFixedExpenses };
+      });
+
+      return { previousData };
     },
-    onError: (error) => {
-      showError(`Erro ao atualizar status: ${error.message}`);
+    onError: (err, newData, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['allExpenses', selectedMonth, selectedYear], context.previousData);
+      }
+      showError(`Erro ao atualizar status: ${(err as Error).message}`);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
     },
   });
 
@@ -144,29 +166,44 @@ const Expenses = () => {
     },
   });
 
-  const combinedData = useMemo<CombinedEntry[]>(() => {
+  const sortedData = useMemo<CombinedEntry[]>(() => {
     if (!data) return [];
 
-    const variableEntries: CombinedEntry[] = data.transactions.map(t => ({
-      ...t,
-      type: 'Variável',
-      accountName: t.accounts?.name || null,
-    }));
+    const combined = [
+      ...data.transactions.map(t => ({ ...t, type: 'Variável' as const, accountName: t.accounts?.name || null })),
+      ...data.fixedExpenses.map(fe => ({
+        id: fe.id, name: fe.name, amount: -fe.amount, date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
+        category: fe.category, type: 'Fixa' as const, accountName: 'N/A', is_paid: fe.is_paid, fixed_expense_id: fe.fixed_expense_id,
+      }))
+    ];
 
-    const fixedEntries: CombinedEntry[] = data.fixedExpenses.map(fe => ({
-      id: fe.id,
-      name: fe.name,
-      amount: -fe.amount,
-      date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
-      category: fe.category,
-      type: 'Fixa',
-      accountName: 'N/A',
-      is_paid: fe.is_paid,
-      fixed_expense_id: fe.fixed_expense_id,
-    }));
+    return combined.sort((a, b) => {
+      const valA = a[sortConfig.key];
+      const valB = b[sortConfig.key];
+      
+      let comparison = 0;
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
 
-    return [...variableEntries, ...fixedEntries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [data, selectedMonth, selectedYear]);
+      if (sortConfig.key === 'date') {
+        comparison = new Date(valA as string).getTime() - new Date(valB as string).getTime();
+      } else if (typeof valA === 'string' && typeof valB === 'string') {
+        comparison = valA.localeCompare(valB);
+      } else if (typeof valA === 'number' && typeof valB === 'number') {
+        comparison = valA - valB;
+      }
+
+      return sortConfig.direction === 'asc' ? comparison : -comparison;
+    });
+  }, [data, selectedMonth, selectedYear, sortConfig]);
+
+  const requestSort = (key: SortableKeys) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   const handleEditVariableClick = (entry: CombinedEntry) => {
     const originalTransaction = data?.transactions.find(t => t.id === entry.id);
@@ -194,6 +231,13 @@ const Expenses = () => {
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+
+  const renderSortArrow = (key: SortableKeys) => {
+    if (sortConfig.key !== key) {
+      return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
+    }
+    return <ArrowUpDown className={`ml-2 h-4 w-4 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />;
+  };
 
   return (
     <>
@@ -242,12 +286,36 @@ const Expenses = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[50px]">Status</TableHead>
-                  <TableHead>Despesa</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Conta</TableHead>
-                  <TableHead className="hidden md:table-cell">Data</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('name')} className="px-2">
+                      Despesa {renderSortArrow('name')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('type')} className="px-2">
+                      Tipo {renderSortArrow('type')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('category')} className="px-2">
+                      Categoria {renderSortArrow('category')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('accountName')} className="px-2">
+                      Conta {renderSortArrow('accountName')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    <Button variant="ghost" onClick={() => requestSort('date')} className="px-2">
+                      Data {renderSortArrow('date')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <Button variant="ghost" onClick={() => requestSort('amount')} className="px-2">
+                      Valor {renderSortArrow('amount')}
+                    </Button>
+                  </TableHead>
                   <TableHead>
                     <span className="sr-only">Ações</span>
                   </TableHead>
@@ -264,7 +332,7 @@ const Expenses = () => {
                     <TableCell colSpan={8} className="text-center text-red-500">{(error as Error).message}</TableCell>
                   </TableRow>
                 )}
-                {combinedData.map((entry) => (
+                {sortedData.map((entry) => (
                   <TableRow key={`${entry.type}-${entry.id}`} data-paid={entry.type === 'Fixa' && entry.is_paid} className="data-[paid=true]:bg-green-50 dark:data-[paid=true]:bg-green-950/50">
                     <TableCell>
                       {entry.type === 'Fixa' && (
@@ -346,7 +414,7 @@ const Expenses = () => {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Mostrando <strong>{combinedData.length || 0}</strong> de <strong>{combinedData.length || 0}</strong> despesas
+              Mostrando <strong>{sortedData.length || 0}</strong> de <strong>{sortedData.length || 0}</strong> despesas
             </div>
           </CardFooter>
         </Card>
