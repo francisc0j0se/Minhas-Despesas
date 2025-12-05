@@ -4,6 +4,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 
 interface SpendingChartProps {
@@ -15,6 +16,7 @@ const SpendingChart = ({ data }: SpendingChartProps) => {
     <Card className="h-full">
       <CardHeader>
         <CardTitle>Visão Geral de Gastos</CardTitle>
+        <CardDescription>Soma de despesas fixas e variáveis durante o ano.</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         <ResponsiveContainer width="100%" height={350}>

@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { CalendarClock } from 'lucide-react';
 
 interface UpcomingExpense {
   name: string;
@@ -38,7 +39,10 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Despesas a Vencer</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <CalendarClock className="h-5 w-5" />
+          Despesas a Vencer
+        </CardTitle>
         <CardDescription>
           Contas fixas com vencimento nos próximos 7 dias.
         </CardDescription>

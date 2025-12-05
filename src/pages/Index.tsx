@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
 import SpendingChart from '@/components/SpendingChart';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Wallet, TrendingUp, TrendingDown, CheckCircle, PiggyBank } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import AddTransactionDialog from '@/components/AddTransactionDialog';
@@ -116,11 +116,11 @@ const Index = () => {
     const totalBalance = incomeThisMonth + (showVariable ? expensesFromTransactions : 0) - (showFixed ? expensesFromFixed : 0);
 
     return [
-      { title: 'Saldo do Mês', value: formatCurrency(totalBalance), change: '', description: '' },
-      { title: 'Receita', value: formatCurrency(incomeThisMonth), change: '', description: 'este mês' },
-      { title: 'Despesas', value: formatCurrency(totalExpensesThisMonth), change: '', description: 'este mês' },
-      { title: 'Pagos', value: formatCurrency(totalPaidThisMonth), change: '', description: 'despesas fixas e variáveis' },
-      { title: 'Economia', value: formatCurrency(savingsThisMonth), change: '', description: 'este mês' },
+      { title: 'Saldo do Mês', value: formatCurrency(totalBalance), description: `Balanço de ${monthName}`, icon: Wallet },
+      { title: 'Receita', value: formatCurrency(incomeThisMonth), description: 'Total de entradas no mês', icon: TrendingUp },
+      { title: 'Despesas', value: formatCurrency(totalExpensesThisMonth), description: 'Total de saídas no mês', icon: TrendingDown },
+      { title: 'Pagos', value: formatCurrency(totalPaidThisMonth), description: 'Total pago no mês', icon: CheckCircle },
+      { title: 'Economia', value: formatCurrency(savingsThisMonth), description: 'Receita - Despesas', icon: PiggyBank },
     ];
   };
 
@@ -247,7 +247,7 @@ const Index = () => {
               key={card.title}
               title={card.title}
               value={card.value}
-              change={card.change}
+              icon={card.icon}
               description={card.description}
             />
           ))}
