@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import PaidExpenses from '@/components/PaidExpenses';
 import OverdueExpenses from '@/components/OverdueExpenses';
 import RecentTransactions from '@/components/RecentTransactions';
+import DailySpendingChart from '@/components/DailySpendingChart';
 
 interface Transaction {
   id: string;
@@ -170,6 +171,36 @@ const Index = () => {
     return Object.keys(categoryTotals).map(name => ({ name, value: categoryTotals[name] }));
   };
 
+  const getDailySpendingData = () => {
+    if (isLoadingTransactions || isLoadingFixedExpenses) return [];
+
+    const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+    const dailyData = Array.from({ length: daysInMonth }, (_, i) => ({
+      date: String(i + 1).padStart(2, '0'),
+      spending: 0,
+    }));
+
+    if (showVariable && monthlyTransactions) {
+      monthlyTransactions.filter(t => t.amount < 0).forEach(t => {
+        const day = new Date(t.date).getUTCDate() - 1;
+        if (day >= 0 && day < daysInMonth) {
+          dailyData[day].spending += Math.abs(t.amount);
+        }
+      });
+    }
+
+    if (showFixed && monthlyFixedExpenses) {
+      monthlyFixedExpenses.forEach(fe => {
+        const day = fe.day_of_month - 1;
+        if (day >= 0 && day < daysInMonth) {
+          dailyData[day].spending += fe.amount;
+        }
+      });
+    }
+
+    return dailyData;
+  };
+
   const getPaidExpenses = () => {
     return (monthlyFixedExpenses || [])
       .filter(fe => fe.is_paid)
@@ -226,6 +257,7 @@ const Index = () => {
   const summaryCards = calculateSummary();
   const spendingData = getSpendingChartData();
   const categorySpendingData = getCategorySpendingData();
+  const dailySpendingData = getDailySpendingData();
   const paidExpenses = getPaidExpenses();
   const { overdue: overdueExpenses, upcoming: upcomingExpenses } = getOverdueAndUpcomingExpenses();
   const recentTransactions = getRecentTransactions();
@@ -288,13 +320,10 @@ const Index = () => {
             />
           ))}
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          <div className="lg:col-span-4">
-            <SpendingChart data={spendingData} />
-          </div>
-          <div className="lg:col-span-3">
-            <CategorySpendingChart data={categorySpendingData} />
-          </div>
+        <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
+          <SpendingChart data={spendingData} />
+          <CategorySpendingChart data={categorySpendingData} />
+          <DailySpendingChart data={dailySpendingData} />
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <OverdueExpenses expenses={overdueExpenses} />
