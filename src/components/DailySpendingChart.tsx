@@ -11,7 +11,7 @@ interface DailySpendingChartProps {
   data: { date: string; spending: number }[];
 }
 
-const DailySpendingChart = ({ data }: DailySpending-ChartProps) => {
+const DailySpendingChart = ({ data }: DailySpendingChartProps) => {
   return (
     <Card className="h-full">
       <CardHeader>
