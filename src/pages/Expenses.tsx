@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown } from "lucide-react";
 import AddExpenseDialog from "@/components/AddExpenseDialog";
+import AddFixedExpenseDialog from "@/components/AddFixedExpenseDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
 import EditMonthlyExpenseDialog from "@/components/EditMonthlyExpenseDialog";
 import EditFixedExpenseDialog from "@/components/EditFixedExpenseDialog";
@@ -72,6 +73,7 @@ type SortableKeys = keyof CombinedEntry;
 const Expenses = () => {
   const queryClient = useQueryClient();
   const [isAddExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
+  const [isAddFixedExpenseDialogOpen, setAddFixedExpenseDialogOpen] = useState(false);
   const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
   const [isEditFixedExpenseDialogOpen, setIsEditFixedExpenseDialogOpen] = useState(false);
   const [isEditMonthlyOverrideDialogOpen, setIsEditMonthlyOverrideDialogOpen] = useState(false);
@@ -218,10 +220,22 @@ const Expenses = () => {
       <div className="flex flex-col gap-4">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Despesas</h1>
-          <Button size="sm" onClick={() => setAddExpenseDialogOpen(true)}>
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Adicionar Despesa
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm">
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Adicionar Despesa
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => setAddExpenseDialogOpen(true)}>
+                Adicionar Despesa Variável
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setAddFixedExpenseDialogOpen(true)}>
+                Adicionar Despesa Fixa
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </header>
         <Card>
           <CardHeader>
@@ -391,6 +405,10 @@ const Expenses = () => {
       <AddExpenseDialog 
         isOpen={isAddExpenseDialogOpen} 
         onOpenChange={setAddExpenseDialogOpen} 
+      />
+      <AddFixedExpenseDialog
+        isOpen={isAddFixedExpenseDialogOpen}
+        onOpenChange={setAddFixedExpenseDialogOpen}
       />
       <EditTransactionDialog 
         isOpen={isEditTransactionDialogOpen} 
