@@ -11,11 +11,11 @@ interface DailySpendingChartProps {
   data: { date: string; spending: number }[];
 }
 
-const DailySpendingChart = ({ data }: DailySpendingChartProps) => {
+const DailySpendingChart = ({ data }: DailySpending-ChartProps) => {
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Gastos Diários no Mês</CardTitle>
+        <CardTitle>Despesas por Dia do Vencimento</CardTitle>
         <CardDescription>Evolução das suas despesas ao longo do mês selecionado.</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
