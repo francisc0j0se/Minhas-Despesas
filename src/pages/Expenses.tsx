@@ -25,6 +25,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showSuccess, showError } from "@/utils/toast";
 import CopyExpensesDialog from "@/components/CopyExpensesDialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Transaction {
   id: string;
@@ -79,6 +81,7 @@ const Expenses = () => {
   const [isEditFixedExpenseDialogOpen, setIsEditFixedExpenseDialogOpen] = useState(false);
   const [isEditMonthlyOverrideDialogOpen, setIsEditMonthlyOverrideDialogOpen] = useState(false);
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
+  const [isAddOptionsSheetOpen, setAddOptionsSheetOpen] = useState(false);
 
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [selectedFixedExpense, setSelectedFixedExpense] = useState<FixedExpense | null>(null);
@@ -87,6 +90,8 @@ const Expenses = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
+  
+  const isMobile = useIsMobile();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['allExpenses', selectedMonth, selectedYear],
@@ -258,22 +263,59 @@ const Expenses = () => {
               <Copy className="h-4 w-4 mr-2" />
               Copiar Mês
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" className="flex-1 sm:flex-grow-0">
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Adicionar Despesa
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => setAddExpenseDialogOpen(true)}>
-                  Adicionar Despesa Variável
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setAddFixedExpenseDialogOpen(true)}>
-                  Adicionar Despesa Fixa
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {isMobile ? (
+              <Sheet open={isAddOptionsSheetOpen} onOpenChange={setAddOptionsSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button size="sm" className="flex-1 sm:flex-grow-0">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Adicionar Despesa
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="rounded-t-lg">
+                  <SheetHeader className="text-left mb-4">
+                    <SheetTitle>O que deseja adicionar?</SheetTitle>
+                  </SheetHeader>
+                  <div className="grid gap-4">
+                    <Button
+                      size="lg"
+                      onClick={() => {
+                        setAddExpenseDialogOpen(true);
+                        setAddOptionsSheetOpen(false);
+                      }}
+                    >
+                      Despesa Variável
+                    </Button>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      onClick={() => {
+                        setAddFixedExpenseDialogOpen(true);
+                        setAddOptionsSheetOpen(false);
+                      }}
+                    >
+                      Despesa Fixa
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="flex-1 sm:flex-grow-0">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Adicionar Despesa
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onSelect={() => setAddExpenseDialogOpen(true)}>
+                    Adicionar Despesa Variável
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setAddFixedExpenseDialogOpen(true)}>
+                    Adicionar Despesa Fixa
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </header>
         <Card>
