@@ -27,8 +27,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, MoreHorizontal, File } from "lucide-react";
-import AddTransactionDialog from "@/components/AddTransactionDialog";
+import { PlusCircle, MoreHorizontal } from "lucide-react";
+import AddRevenueDialog from "@/components/AddRevenueDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -54,7 +54,7 @@ const formatDate = (dateString: string) => {
 };
 
 const Revenues = () => {
-  const [isAddTransactionDialogOpen, setAddTransactionDialogOpen] = useState(false);
+  const [isAddRevenueDialogOpen, setAddRevenueDialogOpen] = useState(false);
   const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -91,7 +91,7 @@ const Revenues = () => {
       <div className="flex flex-col gap-4">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Receitas</h1>
-          <Button size="sm" onClick={() => setAddTransactionDialogOpen(true)}>
+          <Button size="sm" onClick={() => setAddRevenueDialogOpen(true)}>
             <PlusCircle className="h-4 w-4 mr-2" />
             Adicionar Receita
           </Button>
@@ -193,9 +193,9 @@ const Revenues = () => {
           </CardFooter>
         </Card>
       </div>
-      <AddTransactionDialog 
-        isOpen={isAddTransactionDialogOpen} 
-        onOpenChange={setAddTransactionDialogOpen} 
+      <AddRevenueDialog 
+        isOpen={isAddRevenueDialogOpen} 
+        onOpenChange={setAddRevenueDialogOpen} 
       />
       <EditTransactionDialog 
         isOpen={isEditTransactionDialogOpen} 
