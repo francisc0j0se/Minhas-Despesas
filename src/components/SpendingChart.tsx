@@ -6,22 +6,17 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import { useVisibility } from '@/contexts/VisibilityProvider';
 
 interface SpendingChartProps {
   data: { month: string; spending: number }[];
 }
 
 const SpendingChart = ({ data }: SpendingChartProps) => {
-  const { isVisible } = useVisibility();
-
   const yAxisFormatter = (value: number) => {
-    if (!isVisible) return 'R$•••';
     return `R$${value}`;
   };
 
   const tooltipFormatter = (value: number) => {
-    if (!isVisible) return 'R$ ••••••';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 

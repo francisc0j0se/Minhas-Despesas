@@ -15,7 +15,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { AlertCircle } from 'lucide-react';
-import { useVisibility } from '@/contexts/VisibilityProvider';
 
 interface OverdueExpense {
   name: string;
@@ -28,10 +27,7 @@ interface OverdueExpensesProps {
 }
 
 const OverdueExpenses = ({ expenses }: OverdueExpensesProps) => {
-  const { isVisible } = useVisibility();
-
   const formatCurrency = (value: number) => {
-    if (!isVisible) return 'R$ ••••••';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',

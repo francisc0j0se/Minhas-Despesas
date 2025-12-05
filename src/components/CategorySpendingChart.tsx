@@ -6,7 +6,6 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import { useVisibility } from '@/contexts/VisibilityProvider';
 
 interface CategorySpendingChartProps {
   data: { name: string; value: number }[];
@@ -15,15 +14,11 @@ interface CategorySpendingChartProps {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1919', '#8884d8', '#82ca9d'];
 
 const CategorySpendingChart = ({ data }: CategorySpendingChartProps) => {
-  const { isVisible } = useVisibility();
-
   const yAxisFormatter = (value: number) => {
-    if (!isVisible) return 'R$•••';
     return `R$${value}`;
   };
 
   const tooltipFormatter = (value: number) => {
-    if (!isVisible) return 'R$ ••••••';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 

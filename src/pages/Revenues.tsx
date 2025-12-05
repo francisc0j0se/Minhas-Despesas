@@ -31,8 +31,6 @@ import { PlusCircle, MoreHorizontal } from "lucide-react";
 import AddRevenueDialog from "@/components/AddRevenueDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useVisibility } from "@/contexts/VisibilityProvider";
-import { VisibilityToggle } from "@/components/VisibilityToggle";
 
 interface Transaction {
   id: string;
@@ -54,10 +52,8 @@ const Revenues = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const { isVisible } = useVisibility();
 
   const formatCurrency = (value: number) => {
-    if (!isVisible) return 'R$ ••••••';
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
@@ -95,13 +91,10 @@ const Revenues = () => {
       <div className="flex flex-col gap-4">
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Receitas</h1>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <VisibilityToggle />
-            <Button size="sm" onClick={() => setAddRevenueDialogOpen(true)} className="w-full sm:w-auto flex-1">
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Adicionar Receita
-            </Button>
-          </div>
+          <Button size="sm" onClick={() => setAddRevenueDialogOpen(true)} className="w-full sm:w-auto">
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Adicionar Receita
+          </Button>
         </header>
         <Card>
           <CardHeader>

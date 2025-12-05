@@ -27,8 +27,6 @@ import { showSuccess, showError } from "@/utils/toast";
 import CopyExpensesDialog from "@/components/CopyExpensesDialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { useVisibility } from "@/contexts/VisibilityProvider";
-import { VisibilityToggle } from "@/components/VisibilityToggle";
 
 interface Transaction {
   id: string;
@@ -87,10 +85,8 @@ const Expenses = () => {
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
   
   const isMobile = useIsMobile();
-  const { isVisible } = useVisibility();
 
   const formatCurrency = (value: number) => {
-    if (!isVisible) return 'R$ ••••••';
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
@@ -263,7 +259,6 @@ const Expenses = () => {
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Despesas</h1>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <VisibilityToggle />
             <Button variant="outline" size="sm" onClick={() => setIsCopyDialogOpen(true)} className="flex-1 sm:flex-grow-0">
               <Copy className="h-4 w-4 mr-2" />
               Copiar Mês
