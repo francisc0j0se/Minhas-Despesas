@@ -14,19 +14,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CalendarClock } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
-interface UpcomingExpense {
+interface OverdueExpense {
   name: string;
   amount: number;
   day_of_month: number;
 }
 
-interface UpcomingExpensesProps {
-  expenses: UpcomingExpense[];
+interface OverdueExpensesProps {
+  expenses: OverdueExpense[];
 }
 
-const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
+const OverdueExpenses = ({ expenses }: OverdueExpensesProps) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -40,11 +40,11 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarClock className="h-5 w-5" />
-          Despesas a Vencer
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          Despesas Vencidas
         </CardTitle>
         <CardDescription>
-          Contas fixas pendentes de pagamento neste mês.
+          Contas que passaram do vencimento e não foram pagas.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -59,7 +59,7 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
             </TableHeader>
             <TableBody>
               {expenses.map((expense, index) => (
-                <TableRow key={index}>
+                <TableRow key={index} className="bg-red-50 dark:bg-red-950/50">
                   <TableCell className="font-medium">{expense.name}</TableCell>
                   <TableCell>Dia {expense.day_of_month}</TableCell>
                   <TableCell className="text-right">{formatCurrency(expense.amount)}</TableCell>
@@ -68,7 +68,7 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
             </TableBody>
           </Table>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma despesa pendente para este mês.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma despesa vencida este mês.</p>
         )}
       </CardContent>
       {expenses && expenses.length > 0 && (
@@ -82,4 +82,4 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
   );
 };
 
-export default UpcomingExpenses;
+export default OverdueExpenses;

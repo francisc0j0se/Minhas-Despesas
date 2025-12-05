@@ -11,6 +11,8 @@ import UpcomingExpenses from '@/components/UpcomingExpenses';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import PaidExpenses from '@/components/PaidExpenses';
+import OverdueExpenses from '@/components/OverdueExpenses';
 
 interface Transaction {
   id: string;
@@ -166,22 +168,32 @@ const Index = () => {
     return Object.keys(categoryTotals).map(name => ({ name, value: categoryTotals[name] }));
   };
 
-  const getUpcomingExpenses = () => {
-    const now = new Date();
-    const today = now.getDate();
-    const nextWeek = new Date();
-    nextWeek.setDate(today + 7);
-
+  const getPaidExpenses = () => {
     return (monthlyFixedExpenses || [])
-      .filter(fe => !fe.is_paid)
-      .filter(fe => {
-        const dueDate = fe.day_of_month;
-        if (nextWeek.getMonth() !== now.getMonth()) {
-          return dueDate >= today || dueDate <= nextWeek.getDate();
-        }
-        return dueDate >= today && dueDate <= nextWeek.getDate();
-      })
+      .filter(fe => fe.is_paid)
       .sort((a, b) => a.day_of_month - b.day_of_month);
+  };
+
+  const getOverdueAndUpcomingExpenses = () => {
+    const overdue: MonthlyExpense[] = [];
+    const upcoming: MonthlyExpense[] = [];
+    const now = new Date();
+    const today = (now.getFullYear() === selectedYear && now.getMonth() + 1 === selectedMonth) ? now.getDate() : 32;
+
+    const unpaidExpenses = (monthlyFixedExpenses || []).filter(fe => !fe.is_paid);
+
+    for (const expense of unpaidExpenses) {
+      if (expense.day_of_month < today) {
+        overdue.push(expense);
+      } else {
+        upcoming.push(expense);
+      }
+    }
+
+    return {
+      overdue: overdue.sort((a, b) => a.day_of_month - b.day_of_month),
+      upcoming: upcoming.sort((a, b) => a.day_of_month - b.day_of_month),
+    };
   };
 
   const isLoading = isLoadingTransactions || isLoadingFixedExpenses || isLoadingYearlyTransactions || isLoadingYearlyFixed;
@@ -193,7 +205,8 @@ const Index = () => {
   const summaryCards = calculateSummary();
   const spendingData = getSpendingChartData();
   const categorySpendingData = getCategorySpendingData();
-  const upcomingExpenses = getUpcomingExpenses();
+  const paidExpenses = getPaidExpenses();
+  const { overdue: overdueExpenses, upcoming: upcomingExpenses } = getOverdueAndUpcomingExpenses();
 
   return (
     <>
@@ -260,8 +273,10 @@ const Index = () => {
             <CategorySpendingChart data={categorySpendingData} />
           </div>
         </div>
-        <div>
+        <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
+          <OverdueExpenses expenses={overdueExpenses} />
           <UpcomingExpenses expenses={upcomingExpenses} />
+          <PaidExpenses expenses={paidExpenses} />
         </div>
       </div>
       <AddTransactionDialog 

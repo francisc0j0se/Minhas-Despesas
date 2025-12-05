@@ -14,19 +14,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { CalendarClock } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
 
-interface UpcomingExpense {
+interface PaidExpense {
   name: string;
   amount: number;
   day_of_month: number;
 }
 
-interface UpcomingExpensesProps {
-  expenses: UpcomingExpense[];
+interface PaidExpensesProps {
+  expenses: PaidExpense[];
 }
 
-const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
+const PaidExpenses = ({ expenses }: PaidExpensesProps) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -40,11 +40,11 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <CalendarClock className="h-5 w-5" />
-          Despesas a Vencer
+          <CheckCircle2 className="h-5 w-5 text-green-500" />
+          Despesas Pagas no Mês
         </CardTitle>
         <CardDescription>
-          Contas fixas pendentes de pagamento neste mês.
+          Contas fixas que já foram marcadas como pagas.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -68,7 +68,7 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
             </TableBody>
           </Table>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma despesa pendente para este mês.</p>
+          <p className="text-sm text-muted-foreground text-center py-4">Nenhuma despesa fixa paga este mês.</p>
         )}
       </CardContent>
       {expenses && expenses.length > 0 && (
@@ -82,4 +82,4 @@ const UpcomingExpenses = ({ expenses }: UpcomingExpensesProps) => {
   );
 };
 
-export default UpcomingExpenses;
+export default PaidExpenses;
