@@ -13,7 +13,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown, Copy } from "lucide-react";
 import AddExpenseDialog from "@/components/AddExpenseDialog";
 import AddFixedExpenseDialog from "@/components/AddFixedExpenseDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { showSuccess, showError } from "@/utils/toast";
+import CopyExpensesDialog from "@/components/CopyExpensesDialog";
 
 interface Transaction {
   id: string;
@@ -77,6 +78,7 @@ const Expenses = () => {
   const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
   const [isEditFixedExpenseDialogOpen, setIsEditFixedExpenseDialogOpen] = useState(false);
   const [isEditMonthlyOverrideDialogOpen, setIsEditMonthlyOverrideDialogOpen] = useState(false);
+  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
 
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [selectedFixedExpense, setSelectedFixedExpense] = useState<FixedExpense | null>(null);
@@ -251,22 +253,28 @@ const Expenses = () => {
       <div className="flex flex-col gap-4">
         <header className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Despesas</h1>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm">
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Adicionar Despesa
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onSelect={() => setAddExpenseDialogOpen(true)}>
-                Adicionar Despesa Variável
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setAddFixedExpenseDialogOpen(true)}>
-                Adicionar Despesa Fixa
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsCopyDialogOpen(true)}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copiar Mês
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Adicionar Despesa
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onSelect={() => setAddExpenseDialogOpen(true)}>
+                  Adicionar Despesa Variável
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setAddFixedExpenseDialogOpen(true)}>
+                  Adicionar Despesa Fixa
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
         <Card>
           <CardHeader>
@@ -461,6 +469,12 @@ const Expenses = () => {
         expense={selectedFixedExpense}
         month={selectedMonth}
         year={selectedYear}
+      />
+      <CopyExpensesDialog
+        isOpen={isCopyDialogOpen}
+        onOpenChange={setIsCopyDialogOpen}
+        currentMonth={selectedMonth}
+        currentYear={selectedYear}
       />
     </>
   );
