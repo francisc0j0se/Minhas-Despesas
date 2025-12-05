@@ -45,10 +45,15 @@ interface FixedExpense {
   fixed_expense_id: string;
 }
 
-interface CombinedEntry extends Omit<Transaction, 'accounts' | 'account_id'> {
+interface CombinedEntry {
+  id: string;
+  name: string;
+  amount: number;
+  date: string;
+  category: string | null;
   type: 'Variável' | 'Fixa';
   accountName: string | null;
-  is_paid?: boolean;
+  is_paid: boolean;
   fixed_expense_id?: string;
 }
 
@@ -152,11 +157,23 @@ const Expenses = () => {
   const sortedData = useMemo<CombinedEntry[]>(() => {
     if (!data) return [];
 
-    const combined = [
-      ...data.transactions.map(t => ({ ...t, type: 'Variável' as const, accountName: t.accounts?.name || null })),
-      ...data.fixedExpenses.map(fe => ({
-        id: fe.id, name: fe.name, amount: -fe.amount, date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
-        category: fe.category, type: 'Fixa' as const, accountName: 'N/A', is_paid: fe.is_paid, fixed_expense_id: fe.fixed_expense_id,
+    const combined: CombinedEntry[] = [
+      ...data.transactions.map((t): CombinedEntry => ({ 
+        ...t, 
+        type: 'Variável', 
+        accountName: t.accounts?.name || null,
+        is_paid: false,
+      })),
+      ...data.fixedExpenses.map((fe): CombinedEntry => ({
+        id: fe.id, 
+        name: fe.name, 
+        amount: -fe.amount, 
+        date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
+        category: fe.category, 
+        type: 'Fixa', 
+        accountName: 'N/A', 
+        is_paid: fe.is_paid, 
+        fixed_expense_id: fe.fixed_expense_id,
       }))
     ];
 
@@ -320,7 +337,7 @@ const Expenses = () => {
                     <TableCell>
                       {entry.type === 'Fixa' && (
                         <Checkbox
-                          checked={entry.is_paid}
+                          checked={!!entry.is_paid}
                           onCheckedChange={(checked) => {
                             if (entry.fixed_expense_id) {
                               togglePaidMutation.mutate({ fixed_expense_id: entry.fixed_expense_id, is_paid: !!checked });
