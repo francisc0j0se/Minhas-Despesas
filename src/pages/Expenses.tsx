@@ -130,6 +130,37 @@ const Expenses = () => {
     },
   });
 
+  const togglePaidStatusMutation = useMutation({
+    mutationFn: async ({ expenseId, isPaid }: { expenseId: string; isPaid: boolean }) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Usuário não autenticado.");
+
+        const { error } = await supabase.from("monthly_expense_status").upsert({
+            user_id: user.id,
+            fixed_expense_id: expenseId,
+            month: selectedMonth,
+            year: selectedYear,
+            is_paid: isPaid,
+        }, { onConflict: 'user_id,fixed_expense_id,month,year' });
+
+        if (error) throw error;
+    },
+    onSuccess: () => {
+        showSuccess("Status da despesa atualizado!");
+        queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+    },
+    onError: (error) => {
+        showError(`Erro ao atualizar status: ${error.message}`);
+    },
+  });
+
+  const handleTogglePaidStatus = (entry: CombinedEntry) => {
+    togglePaidStatusMutation.mutate({
+        expenseId: entry.id,
+        isPaid: !entry.is_paid,
+    });
+  };
+
   const sortedData = useMemo<CombinedEntry[]>(() => {
     if (!data) return [];
 
@@ -360,6 +391,9 @@ const Expenses = () => {
                               </>
                             ) : (
                               <>
+                                <DropdownMenuItem onClick={() => handleTogglePaidStatus(entry)}>
+                                  {entry.is_paid ? "Marcar como Pendente" : "Marcar como Paga"}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleOverrideClick(entry)}>Alterar Valor do Mês</DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleEditFixedClick(entry)}>Editar Despesa Padrão</DropdownMenuItem>
                                 <DropdownMenuSeparator />
