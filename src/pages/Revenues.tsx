@@ -201,6 +201,7 @@ const Revenues = () => {
         isOpen={isEditTransactionDialogOpen} 
         onOpenChange={setEditTransactionDialogOpen} 
         transaction={selectedTransaction}
+        type="revenue"
       />
     </>
   );

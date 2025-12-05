@@ -65,6 +65,7 @@ interface EditTransactionDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   transaction: TransactionToEdit | null;
+  type: 'expense' | 'revenue';
 }
 
 const fetchAccounts = async () => {
@@ -73,7 +74,7 @@ const fetchAccounts = async () => {
   return data || [];
 };
 
-const EditTransactionDialog = ({ isOpen, onOpenChange, transaction }: EditTransactionDialogProps) => {
+const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: EditTransactionDialogProps) => {
   const queryClient = useQueryClient();
   const {
     register,
@@ -123,13 +124,15 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction }: EditTransa
       if (error) throw error;
     },
     onSuccess: () => {
-      showSuccess("Transação atualizada com sucesso!");
+      showSuccess("Item atualizado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["transactions"] });
       queryClient.invalidateQueries({ queryKey: ["transactionsWithAccount"] });
+      queryClient.invalidateQueries({ queryKey: ["allExpenses"] });
+      queryClient.invalidateQueries({ queryKey: ["revenues"] });
       onOpenChange(false);
     },
     onError: (error) => {
-      showError(`Erro ao atualizar transação: ${error.message}`);
+      showError(`Erro ao atualizar: ${error.message}`);
     },
   });
 
@@ -137,18 +140,29 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction }: EditTransa
     editTransactionMutation.mutate(data);
   };
 
+  const dialogTexts = {
+    expense: {
+      title: "Editar Despesa Variável",
+      description: "Atualize os detalhes da sua despesa.",
+    },
+    revenue: {
+      title: "Editar Receita",
+      description: "Atualize os detalhes da sua receita.",
+    },
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Editar Transação</DialogTitle>
+          <DialogTitle>{dialogTexts[type].title}</DialogTitle>
           <DialogDescription>
-            Atualize os detalhes da sua transação.
+            {dialogTexts[type].description}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
            <div>
-            <Label>Tipo de Transação</Label>
+            <Label>Tipo</Label>
             <Controller
               name="type"
               control={control}
@@ -172,7 +186,7 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction }: EditTransa
             {errors.type && <p className="text-red-500 text-sm mt-1">{errors.type.message}</p>}
           </div>
           <div>
-            <Label htmlFor="name">Nome da Transação</Label>
+            <Label htmlFor="name">Nome</Label>
             <Input id="name" {...register("name")} />
             {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
           </div>

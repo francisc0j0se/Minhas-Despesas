@@ -448,6 +448,7 @@ const Expenses = () => {
         isOpen={isEditTransactionDialogOpen} 
         onOpenChange={setEditTransactionDialogOpen} 
         transaction={selectedTransaction}
+        type="expense"
       />
       <EditFixedExpenseDialog
         isOpen={isEditFixedExpenseDialogOpen}
