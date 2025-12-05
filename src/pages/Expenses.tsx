@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -115,31 +114,6 @@ const Expenses = () => {
     }
   });
 
-  const togglePaidMutation = useMutation({
-    mutationFn: async ({ fixed_expense_id, is_paid }: { fixed_expense_id: string; is_paid: boolean }) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado.");
-
-      const { error } = await supabase.from("monthly_expense_status").upsert({
-        user_id: user.id,
-        fixed_expense_id: fixed_expense_id,
-        month: selectedMonth,
-        year: selectedYear,
-        is_paid,
-      }, { onConflict: 'user_id,fixed_expense_id,month,year' });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      showSuccess("Status de pagamento atualizado!");
-      queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
-      queryClient.invalidateQueries({ queryKey: ["monthly_fixed_expenses", selectedMonth, selectedYear] });
-    },
-    onError: (err) => {
-      showError(`Erro ao atualizar status: ${(err as Error).message}`);
-    },
-  });
-
   const deleteFixedExpenseMutation = useMutation({
     mutationFn: async (expenseId: string) => {
       const { error } = await supabase.from("fixed_expenses").delete().eq("id", expenseId);
@@ -162,7 +136,7 @@ const Expenses = () => {
         ...t, 
         type: 'Variável', 
         accountName: t.accounts?.name || null,
-        is_paid: false,
+        is_paid: true, // Variáveis são consideradas "pagas" no momento do registro
       })),
       ...data.fixedExpenses.map((fe): CombinedEntry => ({
         id: fe.id, 
@@ -285,7 +259,7 @@ const Expenses = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[50px]">Status</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead>
                     <Button variant="ghost" onClick={() => requestSort('name')} className="px-2">
                       Despesa {renderSortArrow('name')}
@@ -335,16 +309,11 @@ const Expenses = () => {
                 {sortedData.map((entry) => (
                   <TableRow key={`${entry.type}-${entry.id}`} data-paid={entry.type === 'Fixa' && entry.is_paid} className="data-[paid=true]:bg-green-50 dark:data-[paid=true]:bg-green-950/50">
                     <TableCell>
-                      {entry.type === 'Fixa' && (
-                        <Checkbox
-                          checked={!!entry.is_paid}
-                          onCheckedChange={(checked) => {
-                            if (entry.fixed_expense_id) {
-                              togglePaidMutation.mutate({ fixed_expense_id: entry.fixed_expense_id, is_paid: !!checked });
-                            }
-                          }}
-                        />
-                      )}
+                      {entry.type === 'Fixa' ? (
+                        <Badge variant={entry.is_paid ? 'default' : 'secondary'}>
+                          {entry.is_paid ? 'Pago' : 'Pendente'}
+                        </Badge>
+                      ) : null}
                     </TableCell>
                     <TableCell className="font-medium">{entry.name}</TableCell>
                     <TableCell>
