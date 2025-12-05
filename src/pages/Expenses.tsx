@@ -396,7 +396,7 @@ const Expenses = () => {
                                       <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                                       <AlertDialogDescription>
                                         Tem certeza que deseja excluir a despesa fixa "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
-                                      </description>
+                                      </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
