@@ -4,6 +4,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  CardFooter,
 } from '@/components/ui/card';
 import {
   Table,
@@ -44,7 +45,7 @@ const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
       <CardHeader>
         <CardTitle>Transações Recentes</CardTitle>
         <CardDescription>
-          Uma lista de suas transações mais recentes.
+          Suas últimas movimentações no mês.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -54,7 +55,6 @@ const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
               <TableHead>Transação</TableHead>
               <TableHead className="text-right">Valor</TableHead>
               <TableHead className="hidden sm:table-cell">Status</TableHead>
-              <TableHead className="hidden md:table-cell">Data</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -62,6 +62,7 @@ const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
               <TableRow key={transaction.id}>
                 <TableCell>
                   <div className="font-medium">{transaction.name}</div>
+                  <div className="text-sm text-muted-foreground hidden md:inline">{formatDate(transaction.date)}</div>
                 </TableCell>
                 <TableCell className={`text-right ${transaction.amount > 0 ? 'text-green-500' : ''}`}>
                   {formatCurrency(transaction.amount)}
@@ -71,12 +72,16 @@ const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
                     {transaction.status}
                   </Badge>
                 </TableCell>
-                <TableCell className="hidden md:table-cell">{formatDate(transaction.date)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+      <CardFooter>
+        <div className="text-xs text-muted-foreground">
+          Mostrando as últimas {transactions.length} transações.
+        </div>
+      </CardFooter>
     </Card>
   );
 };

@@ -13,6 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import PaidExpenses from '@/components/PaidExpenses';
 import OverdueExpenses from '@/components/OverdueExpenses';
+import RecentTransactions from '@/components/RecentTransactions';
 
 interface Transaction {
   id: string;
@@ -20,6 +21,7 @@ interface Transaction {
   date: string;
   amount: number;
   category: string | null;
+  status: string | null;
 }
 
 interface MonthlyExpense {
@@ -55,7 +57,7 @@ const Index = () => {
       const endDate = new Date(selectedYear, selectedMonth, 1).toISOString();
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, name, date, amount, category')
+        .select('id, name, date, amount, category, status')
         .gte('date', startDate)
         .lt('date', endDate);
       if (error) throw new Error(error.message);
@@ -209,6 +211,12 @@ const Index = () => {
     };
   };
 
+  const getRecentTransactions = () => {
+    return (monthlyTransactions || [])
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  };
+
   const isLoading = isLoadingTransactions || isLoadingFixedExpenses || isLoadingYearlyTransactions || isLoadingYearlyFixed;
 
   if (isLoading) {
@@ -220,6 +228,7 @@ const Index = () => {
   const categorySpendingData = getCategorySpendingData();
   const paidExpenses = getPaidExpenses();
   const { overdue: overdueExpenses, upcoming: upcomingExpenses } = getOverdueAndUpcomingExpenses();
+  const recentTransactions = getRecentTransactions();
 
   return (
     <>
@@ -286,10 +295,11 @@ const Index = () => {
             <CategorySpendingChart data={categorySpendingData} />
           </div>
         </div>
-        <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <OverdueExpenses expenses={overdueExpenses} />
           <UpcomingExpenses expenses={upcomingExpenses} />
           <PaidExpenses expenses={paidExpenses} />
+          <RecentTransactions transactions={recentTransactions} />
         </div>
       </div>
       <AddTransactionDialog 
