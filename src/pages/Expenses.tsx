@@ -151,8 +151,8 @@ const Expenses = () => {
       showError(`Erro ao atualizar status: ${(err as Error).message}`);
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['allExpenses'] });
-      queryClient.invalidateQueries({ queryKey: ["monthly_fixed_expenses"] });
+      queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+      queryClient.invalidateQueries({ queryKey: ["monthly_fixed_expenses", selectedMonth, selectedYear] });
     },
   });
 
@@ -396,7 +396,7 @@ const Expenses = () => {
                                       <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                                       <AlertDialogDescription>
                                         Tem certeza que deseja excluir a despesa fixa "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
-                                      </AlertDialogDescription>
+                                      </description>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
