@@ -14,6 +14,7 @@ import Settings from "./pages/Settings";
 import Login from "./pages/Login";
 import { AuthProvider } from "./contexts/AuthProvider";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { VisibilityProvider } from "./contexts/VisibilityProvider";
 
 const queryClient = new QueryClient();
 
@@ -48,7 +49,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <VisibilityProvider>
+            <AppRoutes />
+          </VisibilityProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

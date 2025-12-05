@@ -6,12 +6,25 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
+import { useVisibility } from '@/contexts/VisibilityProvider';
 
 interface DailySpendingChartProps {
   data: { date: string; spending: number }[];
 }
 
 const DailySpendingChart = ({ data }: DailySpendingChartProps) => {
+  const { isVisible } = useVisibility();
+
+  const yAxisFormatter = (value: number) => {
+    if (!isVisible) return 'R$•••';
+    return `R$${value}`;
+  };
+
+  const tooltipFormatter = (value: number) => {
+    if (!isVisible) return ['R$ ••••••', 'Gastos'];
+    return [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value), 'Gastos'];
+  };
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -35,7 +48,7 @@ const DailySpendingChart = ({ data }: DailySpendingChartProps) => {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `R$${value}`}
+                tickFormatter={yAxisFormatter}
               />
               <Tooltip
                 cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1 }}
@@ -43,7 +56,7 @@ const DailySpendingChart = ({ data }: DailySpendingChartProps) => {
                   backgroundColor: 'hsl(var(--background))',
                   borderColor: 'hsl(var(--border))',
                 }}
-                formatter={(value: number) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value), 'Gastos']}
+                formatter={tooltipFormatter}
                 labelFormatter={(label) => `Dia ${label}`}
               />
               <Line type="monotone" dataKey="spending" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4, fill: 'hsl(var(--primary))' }} activeDot={{ r: 8 }} />

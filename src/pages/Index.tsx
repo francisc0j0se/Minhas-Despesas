@@ -15,6 +15,8 @@ import PaidExpenses from '@/components/PaidExpenses';
 import OverdueExpenses from '@/components/OverdueExpenses';
 import RecentTransactions from '@/components/RecentTransactions';
 import DailySpendingChart from '@/components/DailySpendingChart';
+import { useVisibility } from '@/contexts/VisibilityProvider';
+import { VisibilityToggle } from '@/components/VisibilityToggle';
 
 interface Transaction {
   id: string;
@@ -45,6 +47,7 @@ const Index = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [showFixed, setShowFixed] = useState(true);
   const [showVariable, setShowVariable] = useState(true);
+  const { isVisible } = useVisibility();
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -281,6 +284,7 @@ const Index = () => {
           </div>
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
             <div className="flex gap-2">
+              <VisibilityToggle />
               <Select value={String(selectedMonth)} onValueChange={(value) => setSelectedMonth(Number(value))}>
                 <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Mês" />

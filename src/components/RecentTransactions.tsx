@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { useVisibility } from '@/contexts/VisibilityProvider';
 
 interface Transaction {
   id: string;
@@ -29,7 +30,10 @@ interface RecentTransactionsProps {
 }
 
 const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
+  const { isVisible } = useVisibility();
+
   const formatCurrency = (value: number) => {
+    if (!isVisible) return 'R$ ••••••';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',

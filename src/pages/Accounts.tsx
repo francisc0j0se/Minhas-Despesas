@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import AddAccountDialog from "@/components/AddAccountDialog";
+import { useVisibility } from "@/contexts/VisibilityProvider";
+import { VisibilityToggle } from "@/components/VisibilityToggle";
 
 interface Account {
   id: string;
@@ -39,8 +41,10 @@ const Accounts = () => {
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
   });
+  const { isVisible } = useVisibility();
 
   const formatCurrency = (value: number) => {
+    if (!isVisible) return 'R$ ••••••';
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
       currency: "BRL",
@@ -52,10 +56,13 @@ const Accounts = () => {
       <div className="flex flex-col gap-4">
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Contas</h1>
-          <Button onClick={() => setIsAddAccountDialogOpen(true)} className="w-full sm:w-auto">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Conta
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <VisibilityToggle />
+            <Button onClick={() => setIsAddAccountDialogOpen(true)} className="w-full sm:w-auto flex-1">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Adicionar Conta
+            </Button>
+          </div>
         </header>
         <Card>
           <CardHeader>

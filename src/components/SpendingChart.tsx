@@ -6,12 +6,25 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
+import { useVisibility } from '@/contexts/VisibilityProvider';
 
 interface SpendingChartProps {
   data: { month: string; spending: number }[];
 }
 
 const SpendingChart = ({ data }: SpendingChartProps) => {
+  const { isVisible } = useVisibility();
+
+  const yAxisFormatter = (value: number) => {
+    if (!isVisible) return 'R$•••';
+    return `R$${value}`;
+  };
+
+  const tooltipFormatter = (value: number) => {
+    if (!isVisible) return 'R$ ••••••';
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+
   return (
     <Card className="h-full">
       <CardHeader>
@@ -33,7 +46,7 @@ const SpendingChart = ({ data }: SpendingChartProps) => {
               fontSize={12}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(value) => `R$${value}`}
+              tickFormatter={yAxisFormatter}
             />
             <Tooltip
               cursor={{ fill: 'hsl(var(--muted))' }}
@@ -41,7 +54,7 @@ const SpendingChart = ({ data }: SpendingChartProps) => {
                 backgroundColor: 'hsl(var(--background))',
                 borderColor: 'hsl(var(--border))',
               }}
-              formatter={(value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
+              formatter={tooltipFormatter}
             />
             <Bar dataKey="spending" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
           </BarChart>

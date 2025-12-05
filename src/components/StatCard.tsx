@@ -6,6 +6,7 @@ import {
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { LucideIcon } from 'lucide-react';
+import { useVisibility } from '@/contexts/VisibilityProvider';
 
 interface StatCardProps {
   title: string;
@@ -16,6 +17,8 @@ interface StatCardProps {
 }
 
 const StatCard = ({ title, value, description, icon: Icon, valueClassName }: StatCardProps) => {
+  const { isVisible } = useVisibility();
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -23,7 +26,9 @@ const StatCard = ({ title, value, description, icon: Icon, valueClassName }: Sta
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className={cn("text-2xl font-bold", valueClassName)}>{value}</div>
+        <div className={cn("text-2xl font-bold", valueClassName)}>
+          {isVisible ? value : 'R$ ••••••'}
+        </div>
         <p className="text-xs text-muted-foreground">{description}</p>
       </CardContent>
     </Card>

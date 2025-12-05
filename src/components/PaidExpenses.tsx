@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { CheckCircle2 } from 'lucide-react';
+import { useVisibility } from '@/contexts/VisibilityProvider';
 
 interface PaidExpense {
   name: string;
@@ -27,7 +28,10 @@ interface PaidExpensesProps {
 }
 
 const PaidExpenses = ({ expenses }: PaidExpensesProps) => {
+  const { isVisible } = useVisibility();
+
   const formatCurrency = (value: number) => {
+    if (!isVisible) return 'R$ ••••••';
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
       currency: 'BRL',
