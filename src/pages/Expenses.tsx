@@ -13,7 +13,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown, Copy } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown, Copy, Edit, CheckCircle, XCircle } from "lucide-react";
 import AddExpenseDialog from "@/components/AddExpenseDialog";
 import AddFixedExpenseDialog from "@/components/AddFixedExpenseDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
@@ -75,9 +75,11 @@ const Expenses = () => {
   const [isEditMonthlyOverrideDialogOpen, setIsEditMonthlyOverrideDialogOpen] = useState(false);
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
   const [isAddOptionsSheetOpen, setAddOptionsSheetOpen] = useState(false);
+  const [isActionSheetOpen, setIsActionSheetOpen] = useState(false);
 
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [selectedFixedExpense, setSelectedFixedExpense] = useState<FixedExpense | null>(null);
+  const [selectedEntryForAction, setSelectedEntryForAction] = useState<CombinedEntry | null>(null);
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -131,6 +133,22 @@ const Expenses = () => {
     onSuccess: () => {
       showSuccess("Despesa fixa excluída com sucesso!");
       queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+      setIsActionSheetOpen(false);
+    },
+    onError: (error) => {
+      showError(`Erro ao excluir despesa: ${error.message}`);
+    },
+  });
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async (transactionId: string) => {
+      const { error } = await supabase.from("transactions").delete().eq("id", transactionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Despesa variável excluída com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+      setIsActionSheetOpen(false);
     },
     onError: (error) => {
       showError(`Erro ao excluir despesa: ${error.message}`);
@@ -155,6 +173,7 @@ const Expenses = () => {
     onSuccess: () => {
         showSuccess("Status da despesa atualizado!");
         queryClient.invalidateQueries({ queryKey: ['allExpenses', selectedMonth, selectedYear] });
+        setIsActionSheetOpen(false);
     },
     onError: (error) => {
         showError(`Erro ao atualizar status: ${error.message}`);
@@ -225,6 +244,7 @@ const Expenses = () => {
       setSelectedTransaction(originalTransaction);
       setEditTransactionDialogOpen(true);
     }
+    setIsActionSheetOpen(false);
   };
 
   const handleEditFixedClick = (entry: CombinedEntry) => {
@@ -233,6 +253,7 @@ const Expenses = () => {
       setSelectedFixedExpense(originalExpense);
       setIsEditFixedExpenseDialogOpen(true);
     }
+    setIsActionSheetOpen(false);
   };
 
   const handleOverrideClick = (entry: CombinedEntry) => {
@@ -240,6 +261,14 @@ const Expenses = () => {
     if (originalExpense) {
       setSelectedFixedExpense(originalExpense);
       setIsEditMonthlyOverrideDialogOpen(true);
+    }
+    setIsActionSheetOpen(false);
+  };
+
+  const handleActionClick = (entry: CombinedEntry) => {
+    setSelectedEntryForAction(entry);
+    if (isMobile) {
+      setIsActionSheetOpen(true);
     }
   };
 
@@ -251,6 +280,115 @@ const Expenses = () => {
       return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
     }
     return <ArrowUpDown className={`ml-2 h-4 w-4 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />;
+  };
+
+  const ActionSheet = () => {
+    if (!selectedEntryForAction) return null;
+
+    const entry = selectedEntryForAction;
+
+    return (
+      <Sheet open={isActionSheetOpen} onOpenChange={setIsActionSheetOpen}>
+        <SheetContent side="bottom" className="rounded-t-lg">
+          <SheetHeader className="text-left mb-4">
+            <SheetTitle>Ações para: {entry.name}</SheetTitle>
+          </SheetHeader>
+          <div className="grid gap-4">
+            {entry.type === 'Fixa' ? (
+              <>
+                <Button
+                  size="lg"
+                  variant={entry.is_paid ? "secondary" : "default"}
+                  onClick={() => handleTogglePaidStatus(entry)}
+                >
+                  {entry.is_paid ? (
+                    <>
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Marcar como Pendente
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Marcar como Paga
+                    </>
+                  )}
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => handleOverrideClick(entry)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Alterar Valor do Mês
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => handleEditFixedClick(entry)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar Despesa Padrão
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="lg" variant="destructive" className="mt-4">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Excluir Despesa Fixa
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir a despesa fixa "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteFixedExpenseMutation.mutate(entry.id)} className="bg-red-600 hover:bg-red-700">
+                        Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="lg"
+                  onClick={() => handleEditVariableClick(entry)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Editar Despesa Variável
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="lg" variant="destructive" className="mt-4">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Excluir Despesa Variável
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Tem certeza que deseja excluir a despesa variável "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteTransactionMutation.mutate(entry.id)} className="bg-red-600 hover:bg-red-700">
+                        Excluir
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
   };
 
   return (
@@ -425,7 +563,16 @@ const Expenses = () => {
                       {formatCurrency(entry.amount)}
                     </TableCell>
                     <TableCell>
-                       <DropdownMenu>
+                      {isMobile ? (
+                        <Button aria-haspopup="true" size="icon" variant="ghost" onClick={() => handleActionClick(entry)}>
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      ) : (
+                        <DropdownMenu onOpenChange={(open) => {
+                          if (open) handleActionClick(entry);
+                          else setSelectedEntryForAction(null);
+                        }}>
                           <DropdownMenuTrigger asChild>
                             <Button aria-haspopup="true" size="icon" variant="ghost">
                               <MoreHorizontal className="h-4 w-4" />
@@ -436,16 +583,37 @@ const Expenses = () => {
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
                             {entry.type === 'Variável' ? (
                               <>
-                                <DropdownMenuItem onClick={() => handleEditVariableClick(entry)}>Editar</DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">Excluir</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleEditVariableClick(entry)}>Editar</DropdownMenuItem>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Excluir
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja excluir a despesa variável "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteTransactionMutation.mutate(entry.id)} className="bg-red-600 hover:bg-red-700">
+                                        Excluir
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </>
                             ) : (
                               <>
-                                <DropdownMenuItem onClick={() => handleTogglePaidStatus(entry)}>
+                                <DropdownMenuItem onSelect={() => handleTogglePaidStatus(entry)}>
                                   {entry.is_paid ? "Marcar como Pendente" : "Marcar como Paga"}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleOverrideClick(entry)}>Alterar Valor do Mês</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleEditFixedClick(entry)}>Editar Despesa Padrão</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleOverrideClick(entry)}>Alterar Valor do Mês</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleEditFixedClick(entry)}>Editar Despesa Padrão</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
@@ -473,6 +641,7 @@ const Expenses = () => {
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -518,6 +687,7 @@ const Expenses = () => {
         currentMonth={selectedMonth}
         currentYear={selectedYear}
       />
+      <ActionSheet />
     </>
   );
 };
