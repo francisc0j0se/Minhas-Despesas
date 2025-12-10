@@ -2,7 +2,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CategoryFilter } from "./CategoryFilter";
 import { StatusFilter } from "./StatusFilter";
-import { Label } from "@/components/ui/label";
 
 interface FilterBarProps {
   search: string;
@@ -34,35 +33,26 @@ const FilterBar = ({
         className="col-span-full lg:col-span-1"
       />
       
-      <div className="space-y-2">
-        <Label htmlFor="filter-type" className="sr-only">Tipo</Label>
-        <Select value={filterType} onValueChange={onFilterTypeChange}>
-          <SelectTrigger id="filter-type">
-            <SelectValue placeholder="Filtrar por Tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os Tipos</SelectItem>
-            <SelectItem value="fixa">Fixa</SelectItem>
-            <SelectItem value="variavel">Variável</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Select value={filterType} onValueChange={onFilterTypeChange}>
+        <SelectTrigger>
+          <SelectValue placeholder="Filtrar por Tipo" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todos os Tipos</SelectItem>
+          <SelectItem value="fixa">Fixa</SelectItem>
+          <SelectItem value="variavel">Variável</SelectItem>
+        </SelectContent>
+      </Select>
 
-      <div className="space-y-2">
-        <Label htmlFor="filter-category" className="sr-only">Categoria</Label>
-        <CategoryFilter 
-          value={filterCategory} 
-          onChange={onFilterCategoryChange} 
-        />
-      </div>
+      <CategoryFilter 
+        value={filterCategory} 
+        onChange={onFilterCategoryChange} 
+      />
 
-      <div className="space-y-2">
-        <Label htmlFor="filter-status" className="sr-only">Status</Label>
-        <StatusFilter 
-          value={filterStatus} 
-          onChange={onFilterStatusChange} 
-        />
-      </div>
+      <StatusFilter 
+        value={filterStatus} 
+        onChange={onFilterStatusChange} 
+      />
     </div>
   );
 };
