@@ -16,6 +16,7 @@ import OverdueExpenses from '@/components/OverdueExpenses';
 import RecentTransactions from '@/components/RecentTransactions';
 import DailySpendingChart from '@/components/DailySpendingChart';
 import { useVisibility } from '@/contexts/VisibilityProvider';
+import { VisibilityToggle } from '@/components/VisibilityToggle';
 
 interface Transaction {
   id: string;
