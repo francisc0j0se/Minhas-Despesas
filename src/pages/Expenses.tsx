@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown, Copy, Edit, CheckCircle, XCircle } from "lucide-react";
 import AddExpenseDialog from "@/components/AddExpenseDialog";
 import AddFixedExpenseDialog from "@/components/AddFixedExpenseDialog";
@@ -27,6 +26,8 @@ import { showSuccess, showError } from "@/utils/toast";
 import CopyExpensesDialog from "@/components/CopyExpensesDialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Checkbox } from "@/components/ui/checkbox";
+import FilterBar from "@/components/FilterBar";
 
 interface Transaction {
   id: string;
@@ -58,13 +59,14 @@ interface CombinedEntry {
   accountName: string | null;
   is_paid: boolean;
   fixed_expense_id?: string;
+  uniqueKey: string;
 }
 
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString("pt-BR", { timeZone: 'UTC' });
 };
 
-type SortableKeys = keyof CombinedEntry;
+type SortableKeys = keyof CombinedEntry | 'date_day';
 
 const Expenses = () => {
   const queryClient = useQueryClient();
@@ -80,10 +82,16 @@ const Expenses = () => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [selectedFixedExpense, setSelectedFixedExpense] = useState<FixedExpense | null>(null);
   const [selectedEntryForAction, setSelectedEntryForAction] = useState<CombinedEntry | null>(null);
-
+  
+  // Filter States
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterType, setFilterType] = useState<'all' | 'fixa' | 'variavel'>('all');
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>('all');
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
   
   const isMobile = useIsMobile();
@@ -187,48 +195,99 @@ const Expenses = () => {
     });
   };
 
-  const sortedData = useMemo<CombinedEntry[]>(() => {
+  const combinedData = useMemo<CombinedEntry[]>(() => {
     if (!data) return [];
 
-    const combined: CombinedEntry[] = [
-      ...data.transactions.map((t): CombinedEntry => ({ 
-        ...t, 
-        type: 'Variável', 
-        accountName: t.accounts?.name || null,
-        is_paid: true, 
-      })),
-      ...data.fixedExpenses.map((fe): CombinedEntry => ({
-        id: fe.id, 
-        name: fe.name, 
-        amount: -fe.amount, 
-        date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
-        category: fe.category, 
-        type: 'Fixa', 
-        accountName: 'N/A', 
-        is_paid: fe.is_paid, 
-        fixed_expense_id: fe.fixed_expense_id,
-      }))
-    ];
+    const transactions = data.transactions.map((t): CombinedEntry => ({ 
+      ...t, 
+      type: 'Variável', 
+      accountName: t.accounts?.name || null,
+      is_paid: true, // Variáveis são consideradas pagas ao serem registradas
+      uniqueKey: `V-${t.id}`,
+      amount: Math.abs(t.amount), // Usar valor absoluto para despesas
+    }));
 
-    return combined.sort((a, b) => {
-      const valA = a[sortConfig.key];
-      const valB = b[sortConfig.key];
+    const fixedExpenses = data.fixedExpenses.map((fe): CombinedEntry => ({
+      id: fe.id, 
+      name: fe.name, 
+      amount: fe.amount, 
+      date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
+      category: fe.category, 
+      type: 'Fixa', 
+      accountName: 'N/A', 
+      is_paid: fe.is_paid, 
+      fixed_expense_id: fe.fixed_expense_id,
+      uniqueKey: `F-${fe.id}`,
+    }));
+
+    return [...transactions, ...fixedExpenses];
+  }, [data, selectedMonth, selectedYear]);
+
+  const filteredAndSortedData = useMemo<CombinedEntry[]>(() => {
+    let filtered = combinedData;
+    const query = searchQuery.toLowerCase().trim();
+
+    // 1. Filtering
+    if (query) {
+      filtered = filtered.filter(entry => 
+        entry.name.toLowerCase().includes(query) ||
+        entry.category?.toLowerCase().includes(query) ||
+        entry.accountName?.toLowerCase().includes(query)
+      );
+    }
+
+    if (filterType !== 'all') {
+      filtered = filtered.filter(entry => 
+        filterType === 'fixa' ? entry.type === 'Fixa' : entry.type === 'Variável'
+      );
+    }
+
+    if (filterCategory) {
+      filtered = filtered.filter(entry => entry.category === filterCategory);
+    }
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(entry => {
+        if (entry.type === 'Variável') return filterStatus === 'paid'; // Variáveis são sempre pagas
+        
+        return filterStatus === 'paid' ? entry.is_paid : !entry.is_paid;
+      });
+    }
+
+    // 2. Sorting
+    return filtered.sort((a, b) => {
+      const key = sortConfig.key;
+      const direction = sortConfig.direction;
+      
+      let valA: any;
+      let valB: any;
+
+      if (key === 'date') {
+        valA = new Date(a.date).getTime();
+        valB = new Date(b.date).getTime();
+      } else if (key === 'date_day') {
+        valA = a.type === 'Fixa' ? new Date(a.date).getUTCDate() : new Date(a.date).getUTCDate();
+        valB = b.type === 'Fixa' ? new Date(b.date).getUTCDate() : new Date(b.date).getUTCDate();
+      } else {
+        valA = a[key as keyof CombinedEntry];
+        valB = b[key as keyof CombinedEntry];
+      }
       
       let comparison = 0;
       if (valA === null || valA === undefined) return 1;
       if (valB === null || valB === undefined) return -1;
 
-      if (sortConfig.key === 'date') {
-        comparison = new Date(valA as string).getTime() - new Date(valB as string).getTime();
-      } else if (typeof valA === 'string' && typeof valB === 'string') {
+      if (typeof valA === 'string' && typeof valB === 'string') {
         comparison = valA.localeCompare(valB);
       } else if (typeof valA === 'number' && typeof valB === 'number') {
         comparison = valA - valB;
+      } else if (typeof valA === 'boolean' && typeof valB === 'boolean') {
+        comparison = (valA === valB) ? 0 : (valA ? 1 : -1);
       }
 
-      return sortConfig.direction === 'asc' ? comparison : -comparison;
+      return direction === 'asc' ? comparison : -comparison;
     });
-  }, [data, selectedMonth, selectedYear, sortConfig]);
+  }, [combinedData, searchQuery, filterType, filterCategory, filterStatus, sortConfig]);
 
   const requestSort = (key: SortableKeys) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -239,7 +298,7 @@ const Expenses = () => {
   };
 
   const handleEditVariableClick = (entry: CombinedEntry) => {
-    const originalTransaction = data?.transactions.find(t => t.id === entry.id);
+    const originalTransaction = data?.transactions.find(t => `V-${t.id}` === entry.uniqueKey);
     if (originalTransaction) {
       setSelectedTransaction(originalTransaction);
       setEditTransactionDialogOpen(true);
@@ -248,7 +307,7 @@ const Expenses = () => {
   };
 
   const handleEditFixedClick = (entry: CombinedEntry) => {
-    const originalExpense = data?.fixedExpenses.find(fe => fe.id === entry.id);
+    const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
       setSelectedFixedExpense(originalExpense);
       setIsEditFixedExpenseDialogOpen(true);
@@ -257,7 +316,7 @@ const Expenses = () => {
   };
 
   const handleOverrideClick = (entry: CombinedEntry) => {
-    const originalExpense = data?.fixedExpenses.find(fe => fe.id === entry.id);
+    const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
       setSelectedFixedExpense(originalExpense);
       setIsEditMonthlyOverrideDialogOpen(true);
@@ -281,6 +340,32 @@ const Expenses = () => {
     }
     return <ArrowUpDown className={`ml-2 h-4 w-4 transition-transform ${sortConfig.direction === 'desc' ? 'rotate-180' : ''}`} />;
   };
+
+  const toggleRowSelection = (key: string) => {
+    setSelectedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedRows.size === filteredAndSortedData.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(filteredAndSortedData.map(entry => entry.uniqueKey)));
+    }
+  };
+
+  const totalSelectedAmount = useMemo(() => {
+    return filteredAndSortedData
+      .filter(entry => selectedRows.has(entry.uniqueKey))
+      .reduce((sum, entry) => sum + entry.amount, 0);
+  }, [selectedRows, filteredAndSortedData]);
 
   const ActionSheet = () => {
     if (!selectedEntryForAction) return null;
@@ -463,8 +548,7 @@ const Expenses = () => {
               Visualize e gerencie todas as suas saídas aqui.
             </CardDescription>
             <div className="pt-4 flex flex-col md:flex-row gap-4">
-              <Input placeholder="Pesquisar despesas..." className="flex-grow" />
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full md:w-auto">
                 <Select value={String(selectedMonth)} onValueChange={(value) => setSelectedMonth(Number(value))}>
                   <SelectTrigger className="w-full md:w-[180px]">
                     <SelectValue placeholder="Mês" />
@@ -487,11 +571,30 @@ const Expenses = () => {
                 </Select>
               </div>
             </div>
+            <div className="pt-4">
+              <FilterBar
+                search={searchQuery}
+                onSearchChange={setSearchQuery}
+                filterType={filterType}
+                onFilterTypeChange={setFilterType}
+                filterCategory={filterCategory}
+                onFilterCategoryChange={setFilterCategory}
+                filterStatus={filterStatus}
+                onFilterStatusChange={setFilterStatus}
+              />
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px] p-0 text-center">
+                    <Checkbox
+                      checked={selectedRows.size === filteredAndSortedData.length && filteredAndSortedData.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
                   <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead>
                     <Button variant="ghost" onClick={() => requestSort('name')} className="px-2">
@@ -503,19 +606,19 @@ const Expenses = () => {
                       Tipo {renderSortArrow('type')}
                     </Button>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="hidden lg:table-cell">
                     <Button variant="ghost" onClick={() => requestSort('category')} className="px-2">
                       Categoria {renderSortArrow('category')}
                     </Button>
                   </TableHead>
-                  <TableHead>
+                  <TableHead className="hidden xl:table-cell">
                     <Button variant="ghost" onClick={() => requestSort('accountName')} className="px-2">
                       Conta {renderSortArrow('accountName')}
                     </Button>
                   </TableHead>
                   <TableHead className="hidden md:table-cell">
-                    <Button variant="ghost" onClick={() => requestSort('date')} className="px-2">
-                      Data {renderSortArrow('date')}
+                    <Button variant="ghost" onClick={() => requestSort('date_day')} className="px-2">
+                      Dia {renderSortArrow('date_day')}
                     </Button>
                   </TableHead>
                   <TableHead className="text-right">
@@ -531,33 +634,48 @@ const Expenses = () => {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center">Carregando...</TableCell>
+                    <TableCell colSpan={9} className="text-center">Carregando...</TableCell>
                   </TableRow>
                 )}
                 {error && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-red-500">{(error as Error).message}</TableCell>
+                    <TableCell colSpan={9} className="text-center text-red-500">{(error as Error).message}</TableCell>
                   </TableRow>
                 )}
-                {sortedData.map((entry) => (
-                  <TableRow key={`${entry.type}-${entry.id}`} data-paid={entry.type === 'Fixa' && entry.is_paid} className="data-[paid=true]:bg-green-50 dark:data-[paid=true]:bg-green-950/50">
+                {filteredAndSortedData.map((entry) => (
+                  <TableRow key={entry.uniqueKey} data-paid={entry.type === 'Fixa' && entry.is_paid} className="data-[paid=true]:bg-green-50 dark:data-[paid=true]:bg-green-950/50">
+                    <TableCell className="p-0 text-center">
+                      <Checkbox
+                        checked={selectedRows.has(entry.uniqueKey)}
+                        onCheckedChange={() => toggleRowSelection(entry.uniqueKey)}
+                      />
+                    </TableCell>
                     <TableCell>
                       {entry.type === 'Fixa' ? (
                         <Badge variant={entry.is_paid ? 'default' : 'secondary'}>
                           {entry.is_paid ? 'Pago' : 'Pendente'}
                         </Badge>
-                      ) : null}
+                      ) : (
+                        <Badge variant="outline">Concluído</Badge>
+                      )}
                     </TableCell>
-                    <TableCell className="font-medium">{entry.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {entry.name}
+                      <div className="text-xs text-muted-foreground lg:hidden mt-1">
+                        {entry.category && <Badge variant="outline" className="mr-1">{entry.category}</Badge>}
+                        {entry.accountName && <span className="mr-1">{entry.accountName}</span>}
+                        {entry.type === 'Fixa' ? `Dia ${new Date(entry.date).getUTCDate()}` : formatDate(entry.date)}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={entry.type === 'Fixa' ? 'secondary' : 'outline'}>{entry.type}</Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden lg:table-cell">
                       {entry.category && <Badge variant="outline">{entry.category}</Badge>}
                     </TableCell>
-                    <TableCell>{entry.accountName}</TableCell>
+                    <TableCell className="hidden xl:table-cell">{entry.accountName || 'N/A'}</TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {formatDate(entry.date)}
+                      {entry.type === 'Fixa' ? `Dia ${new Date(entry.date).getUTCDate()}` : formatDate(entry.date)}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(entry.amount)}
@@ -648,10 +766,15 @@ const Expenses = () => {
               </TableBody>
             </Table>
           </CardContent>
-          <CardFooter>
+          <CardFooter className="flex justify-between items-center">
             <div className="text-xs text-muted-foreground">
-              Mostrando <strong>{sortedData.length || 0}</strong> de <strong>{sortedData.length || 0}</strong> despesas
+              Mostrando <strong>{filteredAndSortedData.length || 0}</strong> de <strong>{combinedData.length || 0}</strong> despesas
             </div>
+            {selectedRows.size > 0 && (
+              <div className="text-lg font-bold text-red-600">
+                Total Selecionado: {formatCurrency(totalSelectedAmount)}
+              </div>
+            )}
           </CardFooter>
         </Card>
       </div>
@@ -666,7 +789,7 @@ const Expenses = () => {
       <EditTransactionDialog 
         isOpen={isEditTransactionDialogOpen} 
         onOpenChange={setEditTransactionDialogOpen} 
-        transaction={selectedTransaction}
+        transaction={selectedTransaction ? { ...selectedTransaction, amount: Math.abs(selectedTransaction.amount) } : null}
         type="expense"
       />
       <EditFixedExpenseDialog
