@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import StatCard from '@/components/StatCard';
 import SpendingChart from '@/components/SpendingChart';
-import { PlusCircle, Wallet, TrendingUp, TrendingDown, CheckCircle, PiggyBank } from 'lucide-react';
+import { PlusCircle, Wallet, TrendingUp, TrendingDown, CheckCircle, PiggyBank, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import AddTransactionDialog from '@/components/AddTransactionDialog';
@@ -16,7 +16,6 @@ import OverdueExpenses from '@/components/OverdueExpenses';
 import RecentTransactions from '@/components/RecentTransactions';
 import DailySpendingChart from '@/components/DailySpendingChart';
 import { useVisibility } from '@/contexts/VisibilityProvider';
-import { VisibilityToggle } from '@/components/VisibilityToggle';
 
 interface Transaction {
   id: string;
@@ -120,6 +119,8 @@ const Index = () => {
     const totalExpensesThisMonth = (showVariable ? Math.abs(expensesFromTransactions) : 0) + (showFixed ? expensesFromFixed : 0);
     const totalPaidThisMonth = (showVariable ? Math.abs(expensesFromTransactions) : 0) + (showFixed ? paidFixedExpenses : 0);
     
+    const amountToPay = totalExpensesThisMonth - totalPaidThisMonth;
+    
     const savingsThisMonth = incomeThisMonth - totalExpensesThisMonth;
     const totalBalance = incomeThisMonth + (showVariable ? expensesFromTransactions : 0) - (showFixed ? expensesFromFixed : 0);
 
@@ -128,6 +129,7 @@ const Index = () => {
       { title: 'Receita', value: formatCurrency(incomeThisMonth), description: 'Total de entradas no mês', icon: TrendingUp, valueClassName: 'text-green-500' },
       { title: 'Despesas', value: formatCurrency(totalExpensesThisMonth), description: 'Total de saídas no mês', icon: TrendingDown, valueClassName: 'text-red-500' },
       { title: 'Pagos', value: formatCurrency(totalPaidThisMonth), description: 'Total pago no mês', icon: CheckCircle },
+      { title: 'A Pagar', value: formatCurrency(amountToPay), description: 'Despesas - Pagos', icon: Clock, valueClassName: amountToPay > 0 ? 'text-red-500' : 'text-green-500' },
       { title: 'Economia', value: formatCurrency(savingsThisMonth), description: 'Receita - Despesas', icon: PiggyBank, valueClassName: savingsThisMonth >= 0 ? 'text-green-500' : 'text-red-500' },
     ];
   };
@@ -312,7 +314,7 @@ const Index = () => {
             </Button>
           </div>
         </header>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
           {summaryCards.map((card) => (
             <StatCard
               key={card.title}
