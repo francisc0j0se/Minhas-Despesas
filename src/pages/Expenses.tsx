@@ -91,7 +91,7 @@ const Expenses = () => {
   const [filterType, setFilterType] = useState<'all' | 'fixa' | 'variavel'>('all');
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>('all');
-  const [selectedRows, setSelectedRows] = new Set());
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
   
@@ -167,7 +167,6 @@ const Expenses = () => {
 
   const togglePaidStatusMutation = useMutation({
     mutationFn: async ({ expenseId, isPaid }: { expenseId: string; isPaid: boolean }) => {
-        if (isPastMonth) throw new Error("Não é possível alterar o status de despesas em meses passados.");
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Usuário não autenticado.");
 
@@ -192,7 +191,10 @@ const Expenses = () => {
   });
 
   const handleTogglePaidStatus = (entry: CombinedEntry) => {
-    // A verificação de mês passado agora está na mutationFn para garantir que o erro seja capturado corretamente.
+    if (isPastMonth) {
+      showError("Não é possível alterar o status de despesas em meses passados.");
+      return;
+    }
     togglePaidStatusMutation.mutate({
         expenseId: entry.id,
         isPaid: !entry.is_paid,
@@ -315,8 +317,9 @@ const Expenses = () => {
   };
 
   const handleEditFixedClick = (entry: CombinedEntry) => {
-    // A edição da despesa padrão (fixed_expenses) afeta o futuro e o mês atual (se não houver override).
-    // Não bloqueamos esta ação, pois ela é necessária para gerenciar o futuro.
+    // Edição da despesa padrão (fixed_expenses) não deve ser bloqueada por mês, pois afeta o futuro.
+    // No entanto, se o usuário quiser editar o valor padrão, ele deve estar ciente que isso afeta o futuro.
+    // Vamos permitir a edição padrão, mas bloquear a edição mensal (override) e o status.
     const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
       setSelectedFixedExpense(originalExpense);
@@ -330,7 +333,6 @@ const Expenses = () => {
       showError("Não é possível alterar o valor mensal de despesas em meses passados.");
       return;
     }
-    // Esta é a ação correta para alterar o valor APENAS do mês selecionado.
     const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
       setSelectedFixedExpense(originalExpense);
