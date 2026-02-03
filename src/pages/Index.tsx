@@ -137,7 +137,10 @@ const Index = () => {
 
   const getSpendingChartData = () => {
     const monthNamesChart = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-    const monthlySpending = Array.from({ length: 12 }, (_, i) => ({ month: monthNamesChart[i], spending: 0 }));
+    const monthlySpending = Array.from({ length: 12 }, (_, i) => ({ month: monthNamesChart[i], spending: 0, monthIndex: i + 1 }));
+    
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
 
     if (showVariable && yearlyTransactions) {
       yearlyTransactions.filter(t => t.amount < 0).forEach(t => {
@@ -154,7 +157,17 @@ const Index = () => {
       });
     }
 
-    return monthlySpending;
+    // 1. Filter out future months if the selected year is the current year
+    let filteredData = monthlySpending;
+    if (selectedYear === currentYear) {
+      filteredData = filteredData.filter(m => m.monthIndex <= currentMonth);
+    }
+
+    // 2. Filter out months with zero spending
+    filteredData = filteredData.filter(m => m.spending > 0);
+
+    // Remove monthIndex before returning
+    return filteredData.map(({ month, spending }) => ({ month, spending }));
   };
 
   const getCategorySpendingData = () => {
