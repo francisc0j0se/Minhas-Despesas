@@ -28,6 +28,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Checkbox } from "@/components/ui/checkbox";
 import FilterBar from "@/components/FilterBar";
+import { isMonthPast } from "@/utils/date";
 
 interface Transaction {
   id: string;
@@ -95,6 +96,7 @@ const Expenses = () => {
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
   
   const isMobile = useIsMobile();
+  const isPastMonth = isMonthPast(selectedMonth, selectedYear);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -189,6 +191,10 @@ const Expenses = () => {
   });
 
   const handleTogglePaidStatus = (entry: CombinedEntry) => {
+    if (isPastMonth) {
+      showError("Não é possível alterar o status de despesas em meses passados.");
+      return;
+    }
     togglePaidStatusMutation.mutate({
         expenseId: entry.id,
         isPaid: !entry.is_paid,
@@ -298,6 +304,10 @@ const Expenses = () => {
   };
 
   const handleEditVariableClick = (entry: CombinedEntry) => {
+    if (isPastMonth) {
+      showError("Não é possível editar transações em meses passados.");
+      return;
+    }
     const originalTransaction = data?.transactions.find(t => `V-${t.id}` === entry.uniqueKey);
     if (originalTransaction) {
       setSelectedTransaction(originalTransaction);
@@ -307,6 +317,9 @@ const Expenses = () => {
   };
 
   const handleEditFixedClick = (entry: CombinedEntry) => {
+    // Edição da despesa padrão (fixed_expenses) não deve ser bloqueada por mês, pois afeta o futuro.
+    // No entanto, se o usuário quiser editar o valor padrão, ele deve estar ciente que isso afeta o futuro.
+    // Vamos permitir a edição padrão, mas bloquear a edição mensal (override) e o status.
     const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
       setSelectedFixedExpense(originalExpense);
@@ -316,12 +329,32 @@ const Expenses = () => {
   };
 
   const handleOverrideClick = (entry: CombinedEntry) => {
+    if (isPastMonth) {
+      showError("Não é possível alterar o valor mensal de despesas em meses passados.");
+      return;
+    }
     const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
       setSelectedFixedExpense(originalExpense);
       setIsEditMonthlyOverrideDialogOpen(true);
     }
     setIsActionSheetOpen(false);
+  };
+
+  const handleDeleteFixed = (entry: CombinedEntry) => {
+    if (isPastMonth) {
+      showError("Não é possível excluir despesas fixas em meses passados.");
+      return;
+    }
+    deleteFixedExpenseMutation.mutate(entry.id);
+  };
+
+  const handleDeleteVariable = (entry: CombinedEntry) => {
+    if (isPastMonth) {
+      showError("Não é possível excluir transações em meses passados.");
+      return;
+    }
+    deleteTransactionMutation.mutate(entry.id);
   };
 
   const handleActionClick = (entry: CombinedEntry) => {
@@ -371,6 +404,8 @@ const Expenses = () => {
     if (!selectedEntryForAction) return null;
 
     const entry = selectedEntryForAction;
+    const isFixed = entry.type === 'Fixa';
+    const isEditable = !isPastMonth;
 
     return (
       <Sheet open={isActionSheetOpen} onOpenChange={setIsActionSheetOpen}>
@@ -379,12 +414,13 @@ const Expenses = () => {
             <SheetTitle>Ações para: {entry.name}</SheetTitle>
           </SheetHeader>
           <div className="grid gap-4">
-            {entry.type === 'Fixa' ? (
+            {isFixed ? (
               <>
                 <Button
                   size="lg"
                   variant={entry.is_paid ? "secondary" : "default"}
                   onClick={() => handleTogglePaidStatus(entry)}
+                  disabled={!isEditable}
                 >
                   {entry.is_paid ? (
                     <>
@@ -402,6 +438,7 @@ const Expenses = () => {
                   size="lg"
                   variant="outline"
                   onClick={() => handleOverrideClick(entry)}
+                  disabled={!isEditable}
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Alterar Valor do Mês
@@ -416,7 +453,7 @@ const Expenses = () => {
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button size="lg" variant="destructive" className="mt-4">
+                    <Button size="lg" variant="destructive" className="mt-4" disabled={!isEditable}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Excluir Despesa Fixa
                     </Button>
@@ -430,7 +467,7 @@ const Expenses = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteFixedExpenseMutation.mutate(entry.id)} className="bg-red-600 hover:bg-red-700">
+                      <AlertDialogAction onClick={() => handleDeleteFixed(entry)} className="bg-red-600 hover:bg-red-700">
                         Excluir
                       </AlertDialogAction>
                     </AlertDialogFooter>
@@ -442,13 +479,14 @@ const Expenses = () => {
                 <Button
                   size="lg"
                   onClick={() => handleEditVariableClick(entry)}
+                  disabled={!isEditable}
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Editar Despesa Variável
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button size="lg" variant="destructive" className="mt-4">
+                    <Button size="lg" variant="destructive" className="mt-4" disabled={!isEditable}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Excluir Despesa Variável
                     </Button>
@@ -462,13 +500,16 @@ const Expenses = () => {
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => deleteTransactionMutation.mutate(entry.id)} className="bg-red-600 hover:bg-red-700">
+                      <AlertDialogAction onClick={() => handleDeleteVariable(entry)} className="bg-red-600 hover:bg-red-700">
                         Excluir
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </>
+            )}
+            {!isEditable && (
+              <p className="text-sm text-center text-red-500">Mês passado. Edição bloqueada.</p>
             )}
           </div>
         </SheetContent>
@@ -701,10 +742,10 @@ const Expenses = () => {
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
                             {entry.type === 'Variável' ? (
                               <>
-                                <DropdownMenuItem onSelect={() => handleEditVariableClick(entry)}>Editar</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleEditVariableClick(entry)} disabled={isPastMonth}>Editar</DropdownMenuItem>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600" disabled={isPastMonth}>
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       Excluir
                                     </DropdownMenuItem>
@@ -718,7 +759,7 @@ const Expenses = () => {
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => deleteTransactionMutation.mutate(entry.id)} className="bg-red-600 hover:bg-red-700">
+                                      <AlertDialogAction onClick={() => handleDeleteVariable(entry)} className="bg-red-600 hover:bg-red-700">
                                         Excluir
                                       </AlertDialogAction>
                                     </AlertDialogFooter>
@@ -727,15 +768,15 @@ const Expenses = () => {
                               </>
                             ) : (
                               <>
-                                <DropdownMenuItem onSelect={() => handleTogglePaidStatus(entry)}>
+                                <DropdownMenuItem onSelect={() => handleTogglePaidStatus(entry)} disabled={isPastMonth}>
                                   {entry.is_paid ? "Marcar como Pendente" : "Marcar como Paga"}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => handleOverrideClick(entry)}>Alterar Valor do Mês</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleOverrideClick(entry)} disabled={isPastMonth}>Alterar Valor do Mês</DropdownMenuItem>
                                 <DropdownMenuItem onSelect={() => handleEditFixedClick(entry)}>Editar Despesa Padrão</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600" disabled={isPastMonth}>
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       Excluir
                                     </DropdownMenuItem>
@@ -749,7 +790,7 @@ const Expenses = () => {
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction onClick={() => deleteFixedExpenseMutation.mutate(entry.id)} className="bg-red-600 hover:bg-red-700">
+                                      <AlertDialogAction onClick={() => handleDeleteFixed(entry)} className="bg-red-600 hover:bg-red-700">
                                         Excluir
                                       </AlertDialogAction>
                                     </AlertDialogFooter>

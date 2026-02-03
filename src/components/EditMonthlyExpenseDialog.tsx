@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { useEffect } from "react";
+import { isMonthPast } from "@/utils/date";
 
 const expenseSchema = z.object({
   amount: z.coerce.number().positive("O valor deve ser positivo."),
@@ -28,6 +29,8 @@ interface EditMonthlyExpenseDialogProps {
 
 const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }: EditMonthlyExpenseDialogProps) => {
   const queryClient = useQueryClient();
+  const isPast = isMonthPast(month, year);
+  
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<z.infer<typeof expenseSchema>>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
@@ -46,6 +49,7 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
 
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof expenseSchema>) => {
+      if (isPast) throw new Error("Não é possível alterar despesas em meses passados.");
       if (!expense) throw new Error("Despesa não selecionada.");
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado.");
@@ -96,9 +100,14 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {isPast && (
+            <div className="text-red-500 font-medium">
+              Este mês já passou. A edição está bloqueada.
+            </div>
+          )}
           <div>
             <Label htmlFor="amount">Novo Valor (R$)</Label>
-            <Input id="amount" type="number" step="0.01" {...register("amount")} />
+            <Input id="amount" type="number" step="0.01" {...register("amount")} disabled={isPast} />
             {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>}
           </div>
           <div className="flex items-center space-x-2">
@@ -110,6 +119,7 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
                   id="is_paid"
                   checked={field.value}
                   onCheckedChange={field.onChange}
+                  disabled={isPast}
                 />
               )}
             />
@@ -117,7 +127,7 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={mutation.isPending}>
+            <Button type="submit" disabled={mutation.isPending || isPast}>
               {mutation.isPending ? "Salvando..." : "Salvar Alteração"}
             </Button>
           </DialogFooter>

@@ -23,6 +23,7 @@ import { showSuccess, showError } from "@/utils/toast";
 interface CategoryComboboxProps {
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }
 
 const fetchCategories = async () => {
@@ -31,7 +32,7 @@ const fetchCategories = async () => {
   return data.map(c => c.name);
 };
 
-export function CategoryCombobox({ value, onChange }: CategoryComboboxProps) {
+export function CategoryCombobox({ value, onChange, disabled = false }: CategoryComboboxProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -92,6 +93,7 @@ export function CategoryCombobox({ value, onChange }: CategoryComboboxProps) {
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
+          disabled={disabled}
         >
           {value || "Selecione uma categoria..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

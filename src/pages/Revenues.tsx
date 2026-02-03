@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Card,
@@ -27,10 +27,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Trash2 } from "lucide-react";
 import AddRevenueDialog from "@/components/AddRevenueDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isMonthPast } from "@/utils/date";
+import { showSuccess, showError } from "@/utils/toast";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Transaction {
   id: string;
@@ -47,11 +52,14 @@ const formatDate = (dateString: string) => {
 };
 
 const Revenues = () => {
+  const queryClient = useQueryClient();
   const [isAddRevenueDialogOpen, setAddRevenueDialogOpen] = useState(false);
   const [isEditTransactionDialogOpen, setEditTransactionDialogOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  const isPastMonth = isMonthPast(selectedMonth, selectedYear);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -78,9 +86,35 @@ const Revenues = () => {
     }
   });
 
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async (transactionId: string) => {
+      const { error } = await supabase.from("transactions").delete().eq("id", transactionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      showSuccess("Receita excluída com sucesso!");
+      queryClient.invalidateQueries({ queryKey: ['revenues', selectedMonth, selectedYear] });
+    },
+    onError: (error) => {
+      showError(`Erro ao excluir receita: ${error.message}`);
+    },
+  });
+
   const handleEditClick = (transaction: Transaction) => {
+    if (isPastMonth) {
+      showError("Não é possível editar transações em meses passados.");
+      return;
+    }
     setSelectedTransaction(transaction);
     setEditTransactionDialogOpen(true);
+  };
+
+  const handleDeleteClick = (transactionId: string, name: string) => {
+    if (isPastMonth) {
+      showError("Não é possível excluir transações em meses passados.");
+      return;
+    }
+    deleteTransactionMutation.mutate(transactionId);
   };
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -176,8 +210,31 @@ const Revenues = () => {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEditClick(revenue)}>Editar</DropdownMenuItem>
-                          <DropdownMenuItem>Excluir</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditClick(revenue)} disabled={isPastMonth}>
+                            Editar
+                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600" disabled={isPastMonth}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir a receita "{revenue.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteClick(revenue.id, revenue.name)} className="bg-red-600 hover:bg-red-700">
+                                  Excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

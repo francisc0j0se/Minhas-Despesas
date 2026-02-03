@@ -30,10 +30,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
+import { format, getMonth, getYear } from "date-fns";
 import { cn } from "@/lib/utils";
 import { CategoryCombobox } from "./CategoryCombobox";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { isMonthPast } from "@/utils/date";
 
 const transactionSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
@@ -99,6 +100,15 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
     }
   }, [transaction, reset]);
 
+  const transactionDate = useWatch({ control, name: 'date' });
+  
+  const isPast = useMemo(() => {
+    if (!transactionDate) return false;
+    const month = getMonth(transactionDate) + 1;
+    const year = getYear(transactionDate);
+    return isMonthPast(month, year);
+  }, [transactionDate]);
+
   const { data: accounts, isLoading: isLoadingAccounts } = useQuery({
     queryKey: ["accounts"],
     queryFn: fetchAccounts,
@@ -111,6 +121,7 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
 
   const editTransactionMutation = useMutation({
     mutationFn: async (data: z.infer<typeof transactionSchema>) => {
+      if (isPast) throw new Error("Não é possível alterar transações em meses passados.");
       if (!transaction) throw new Error("Nenhuma transação selecionada para edição.");
       
       const amountToUpdate = data.type === 'expense' ? data.amount * -1 : data.amount;
@@ -161,6 +172,11 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+           {isPast && (
+            <div className="text-red-500 font-medium">
+              Este mês já passou. A edição está bloqueada.
+            </div>
+          )}
            <div>
             <Label>Tipo</Label>
             <Controller
@@ -171,6 +187,7 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
                   onValueChange={field.onChange}
                   value={field.value}
                   className="flex items-center space-x-4 pt-2"
+                  disabled={isPast}
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="expense" id="edit-expense" />
@@ -187,12 +204,12 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
           </div>
           <div>
             <Label htmlFor="name">Nome</Label>
-            <Input id="name" {...register("name")} />
+            <Input id="name" {...register("name")} disabled={isPast} />
             {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
           </div>
           <div>
             <Label htmlFor="amount">Valor (R$)</Label>
-            <Input id="amount" type="number" step="0.01" {...register("amount")} />
+            <Input id="amount" type="number" step="0.01" {...register("amount")} disabled={isPast} />
             {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>}
           </div>
           <div>
@@ -201,8 +218,8 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
               name="account_id"
               control={control}
               render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger disabled={isLoadingAccounts}>
+                <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingAccounts || isPast}>
+                  <SelectTrigger>
                     <SelectValue placeholder={isLoadingAccounts ? "Carregando..." : (transactionType === 'income' ? "Selecione uma conta" : "Selecione (opcional)")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -222,13 +239,14 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
               control={control}
               render={({ field }) => (
                 <Popover>
-                  <PopoverTrigger asChild>
+                  <PopoverTrigger asChild disabled={isPast}>
                     <Button
                       variant={"outline"}
                       className={cn(
                         "w-full justify-start text-left font-normal",
                         !field.value && "text-muted-foreground"
                       )}
+                      disabled={isPast}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {field.value ? format(field.value, "PPP") : <span>Escolha uma data</span>}
@@ -256,13 +274,14 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
                 <CategoryCombobox
                   value={field.value || ""}
                   onChange={field.onChange}
+                  disabled={isPast}
                 />
               )}
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={editTransactionMutation.isPending}>
+            <Button type="submit" disabled={editTransactionMutation.isPending || isPast}>
               {editTransactionMutation.isPending ? "Salvando..." : "Salvar Alterações"}
             </Button>
           </DialogFooter>
