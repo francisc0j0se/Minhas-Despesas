@@ -50,7 +50,9 @@ const Index = () => {
   const { isVisible } = useVisibility();
 
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
   const monthName = monthNames[selectedMonth - 1];
 
   // Query for monthly data (cards, pie chart)
@@ -139,9 +141,6 @@ const Index = () => {
     const monthNamesChart = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const monthlySpending = Array.from({ length: 12 }, (_, i) => ({ month: monthNamesChart[i], spending: 0, monthIndex: i + 1 }));
     
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth() + 1;
-
     if (showVariable && yearlyTransactions) {
       yearlyTransactions.filter(t => t.amount < 0).forEach(t => {
         const monthIndex = new Date(t.date).getMonth();
@@ -281,6 +280,10 @@ const Index = () => {
   const { overdue: overdueExpenses, upcoming: upcomingExpenses } = getOverdueAndUpcomingExpenses();
   const recentTransactions = getRecentTransactions();
 
+  const availableMonths = monthNames
+    .map((month, index) => ({ name: month, value: index + 1 }))
+    .filter(m => selectedYear !== currentYear || m.value <= currentMonth);
+
   return (
     <>
       <div className="flex flex-col gap-4">
@@ -306,8 +309,8 @@ const Index = () => {
                   <SelectValue placeholder="Mês" />
                 </SelectTrigger>
                 <SelectContent>
-                  {monthNames.map((month, index) => (
-                    <SelectItem key={month} value={String(index + 1)}>{month}</SelectItem>
+                  {availableMonths.map((month) => (
+                    <SelectItem key={month.name} value={String(month.value)}>{month.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

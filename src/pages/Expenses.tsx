@@ -98,6 +98,15 @@ const Expenses = () => {
   const isMobile = useIsMobile();
   const isPastMonth = isMonthPast(selectedMonth, selectedYear);
 
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  const availableMonths = monthNames
+    .map((month, index) => ({ name: month, value: index + 1 }))
+    .filter(m => selectedYear !== currentYear || m.value <= currentMonth);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -317,9 +326,6 @@ const Expenses = () => {
   };
 
   const handleEditFixedClick = (entry: CombinedEntry) => {
-    // Edição da despesa padrão (fixed_expenses) não deve ser bloqueada por mês, pois afeta o futuro.
-    // No entanto, se o usuário quiser editar o valor padrão, ele deve estar ciente que isso afeta o futuro.
-    // Vamos permitir a edição padrão, mas bloquear a edição mensal (override) e o status.
     const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
       setSelectedFixedExpense(originalExpense);
@@ -364,9 +370,6 @@ const Expenses = () => {
     }
   };
 
-  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-
   const renderSortArrow = (key: SortableKeys) => {
     if (sortConfig.key !== key) {
       return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
@@ -387,7 +390,7 @@ const Expenses = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedRows.size === filteredAndSortedData.length) {
+    if (selectedRows.size === filteredAndSortedData.length && filteredAndSortedData.length > 0) {
       setSelectedRows(new Set());
     } else {
       setSelectedRows(new Set(filteredAndSortedData.map(entry => entry.uniqueKey)));
@@ -595,8 +598,8 @@ const Expenses = () => {
                     <SelectValue placeholder="Mês" />
                   </SelectTrigger>
                   <SelectContent>
-                    {monthNames.map((month, index) => (
-                      <SelectItem key={month} value={String(index + 1)}>{month}</SelectItem>
+                    {availableMonths.map((month) => (
+                      <SelectItem key={month.name} value={String(month.value)}>{month.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

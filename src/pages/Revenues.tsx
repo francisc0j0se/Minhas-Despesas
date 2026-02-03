@@ -61,6 +61,15 @@ const Revenues = () => {
 
   const isPastMonth = isMonthPast(selectedMonth, selectedYear);
 
+  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  const availableMonths = monthNames
+    .map((month, index) => ({ name: month, value: index + 1 }))
+    .filter(m => selectedYear !== currentYear || m.value <= currentMonth);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -117,9 +126,6 @@ const Revenues = () => {
     deleteTransactionMutation.mutate(transactionId);
   };
 
-  const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
-  const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
-
   return (
     <>
       <div className="flex flex-col gap-4">
@@ -144,8 +150,8 @@ const Revenues = () => {
                     <SelectValue placeholder="Mês" />
                   </SelectTrigger>
                   <SelectContent>
-                    {monthNames.map((month, index) => (
-                      <SelectItem key={month} value={String(index + 1)}>{month}</SelectItem>
+                    {availableMonths.map((month) => (
+                      <SelectItem key={month.name} value={String(month.value)}>{month.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
