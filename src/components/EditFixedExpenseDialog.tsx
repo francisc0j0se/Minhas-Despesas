@@ -54,13 +54,24 @@ const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpe
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof expenseSchema>) => {
       if (!expense) throw new Error("Nenhuma despesa selecionada.");
-      const { error } = await supabase.from("fixed_expenses").update(data).eq("id", expense.id);
+      
+      // Usar a nova função RPC para atualizar e preservar o histórico
+      const { error } = await supabase.rpc('update_fixed_expense_and_preserve_history', {
+        p_expense_id: expense.id,
+        p_new_name: data.name,
+        p_new_amount: data.amount,
+        p_new_category: data.category,
+        p_new_day_of_month: data.day_of_month,
+      });
+      
       if (error) throw error;
     },
     onSuccess: () => {
-      showSuccess("Despesa fixa atualizada!");
+      showSuccess("Despesa fixa padrão atualizada! Valores históricos foram preservados.");
+      // Invalida todas as queries de despesas para garantir a atualização
       queryClient.invalidateQueries({ queryKey: ["allExpenses"] });
       queryClient.invalidateQueries({ queryKey: ["monthly_fixed_expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["yearly_fixed_expenses"] });
       onOpenChange(false);
     },
     onError: (error) => {
@@ -78,7 +89,7 @@ const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpe
         <DialogHeader>
           <DialogTitle>Editar Despesa Fixa Padrão</DialogTitle>
           <DialogDescription>
-            Altere os detalhes padrão desta despesa. As alterações afetarão os meses futuros.
+            Altere os detalhes padrão desta despesa. As alterações afetarão o mês atual e meses futuros, preservando os valores dos meses passados.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
