@@ -6,28 +6,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import *as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { CategoryCombobox } from "./CategoryCombobox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { format, getDate } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const expenseSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
   amount: z.coerce.number().positive("O valor deve ser positivo."),
   category: z.string().optional(),
-  date: z.date({ required_error: "A data de início é obrigatória." }),
+  day_of_month: z.coerce.number().min(1).max(31).optional().nullable(),
 });
 
 interface AddFixedExpenseDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
+
+const daysOfMonth = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogProps) => {
   const queryClient = useQueryClient();
@@ -36,7 +34,7 @@ const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogPr
     defaultValues: {
       name: "",
       category: "",
-      date: new Date(),
+      day_of_month: undefined,
     }
   });
 
@@ -45,15 +43,10 @@ const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogPr
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado.");
       
-      // Extrai o dia do mês da data selecionada para salvar como day_of_month
-      const dayOfMonth = getDate(newExpense.date);
-
       const insertData = {
-        name: newExpense.name,
-        amount: newExpense.amount,
-        category: newExpense.category,
+        ...newExpense,
         user_id: user.id,
-        day_of_month: dayOfMonth,
+        day_of_month: newExpense.day_of_month === undefined || newExpense.day_of_month === null ? null : newExpense.day_of_month,
       };
 
       const { error } = await supabase.from("fixed_expenses").insert([insertData]);
@@ -81,7 +74,7 @@ const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogPr
         <DialogHeader>
           <DialogTitle>Adicionar Despesa Fixa</DialogTitle>
           <DialogDescription>
-            Cadastre uma despesa que se repete mensalmente. O dia de vencimento será o dia da data selecionada.
+            Cadastre uma despesa que se repete mensalmente.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -109,36 +102,27 @@ const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogPr
             />
           </div>
           <div>
-            <Label htmlFor="date">Dia de Vencimento Recorrente</Label>
+            <Label htmlFor="day_of_month">Dia do Vencimento (Opcional)</Label>
             <Controller
-              name="date"
+              name="day_of_month"
               control={control}
               render={({ field }) => (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {field.value ? `Dia ${getDate(field.value)} (${format(field.value, "PPP")})` : <span>Escolha uma data</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <Select
+                  onValueChange={(v) => field.onChange(v ? Number(v) : null)}
+                  value={field.value ? String(field.value) : ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o dia do mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {daysOfMonth.map(day => (
+                      <SelectItem key={day} value={String(day)}>Dia {day}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             />
-            {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date.message}</p>}
+            {errors.day_of_month && <p className="text-red-500 text-sm mt-1">{errors.day_of_month.message}</p>}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

@@ -12,18 +12,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { CategoryCombobox } from "./CategoryCombobox";
 import { useEffect } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { format, getDate } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const expenseSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
   amount: z.coerce.number().positive("O valor deve ser positivo."),
   category: z.string().optional(),
-  // Usamos 'date' para representar a data de início/referência
-  date: z.date({ required_error: "A data de início é obrigatória." }),
+  day_of_month: z.coerce.number().min(1).max(31).optional().nullable(),
 });
 
 interface FixedExpenseToEdit {
@@ -32,8 +27,6 @@ interface FixedExpenseToEdit {
     amount: number;
     category: string | null;
     day_of_month: number | null;
-    // Assumimos que created_at pode ser usado como data de referência se day_of_month for nulo
-    created_at: string; 
 }
 
 interface EditFixedExpenseDialogProps {
@@ -41,6 +34,8 @@ interface EditFixedExpenseDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   expense: FixedExpenseToEdit | null;
 }
+
+const daysOfMonth = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpenseDialogProps) => {
   const queryClient = useQueryClient();
@@ -50,21 +45,11 @@ const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpe
 
   useEffect(() => {
     if (expense) {
-      // Se day_of_month existe, criamos uma data de referência no mês atual com esse dia.
-      // Caso contrário, usamos created_at.
-      let initialDate: Date;
-      if (expense.day_of_month) {
-        const now = new Date();
-        initialDate = new Date(now.getFullYear(), now.getMonth(), expense.day_of_month);
-      } else {
-        initialDate = new Date(expense.created_at);
-      }
-
       reset({
         name: expense.name,
         amount: expense.amount,
         category: expense.category || "",
-        date: initialDate,
+        day_of_month: expense.day_of_month || undefined,
       });
     }
   }, [expense, reset]);
@@ -73,14 +58,12 @@ const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpe
     mutationFn: async (data: z.infer<typeof expenseSchema>) => {
       if (!expense) throw new Error("Nenhuma despesa selecionada.");
       
-      // Extrai o dia do mês da data selecionada para salvar como day_of_month
-      const dayOfMonth = getDate(data.date);
-
+      // Garante que day_of_month seja null se for undefined/vazio
       const updateData = {
         name: data.name,
         amount: data.amount,
         category: data.category,
-        day_of_month: dayOfMonth, // Salva o dia extraído da data
+        day_of_month: data.day_of_month === undefined || data.day_of_month === null ? null : data.day_of_month,
       };
 
       const { error } = await supabase.from("fixed_expenses").update(updateData).eq("id", expense.id);
@@ -107,7 +90,7 @@ const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpe
         <DialogHeader>
           <DialogTitle>Editar Despesa Fixa Padrão</DialogTitle>
           <DialogDescription>
-            Altere os detalhes padrão desta despesa. O dia de vencimento será o dia da data selecionada.
+            Altere os detalhes padrão desta despesa. O dia de vencimento é recorrente mensalmente.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -135,36 +118,27 @@ const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpe
             />
           </div>
           <div>
-            <Label htmlFor="date">Dia de Vencimento Recorrente</Label>
+            <Label htmlFor="day_of_month">Dia do Vencimento (Opcional)</Label>
             <Controller
-              name="date"
+              name="day_of_month"
               control={control}
               render={({ field }) => (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {field.value ? `Dia ${getDate(field.value)} (${format(field.value, "PPP")})` : <span>Escolha uma data</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <Select
+                  onValueChange={(v) => field.onChange(v ? Number(v) : null)}
+                  value={field.value ? String(field.value) : ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o dia do mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {daysOfMonth.map(day => (
+                      <SelectItem key={day} value={String(day)}>Dia {day}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             />
-            {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date.message}</p>}
+            {errors.day_of_month && <p className="text-red-500 text-sm mt-1">{errors.day_of_month.message}</p>}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
