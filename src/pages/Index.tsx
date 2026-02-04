@@ -34,6 +34,7 @@ interface MonthlyExpense {
   category: string | null;
   day_of_month: number;
   is_paid: boolean;
+  due_date: string | null; // Novo campo
 }
 
 interface YearlyFixedExpense {
@@ -229,7 +230,10 @@ const Index = () => {
     // Despesas Fixas
     if (showFixed && monthlyFixedExpenses) {
       monthlyFixedExpenses.forEach(fe => {
-        const day = fe.day_of_month - 1;
+        // Usa o dia da due_date se existir, senão usa day_of_month
+        const dayOfMonth = fe.due_date ? new Date(fe.due_date).getDate() : fe.day_of_month;
+        
+        const day = dayOfMonth - 1;
         if (day >= 0 && day < daysInMonth) {
           dailyData[day].spending += fe.amount;
         }
@@ -242,7 +246,10 @@ const Index = () => {
   const getPaidExpenses = () => {
     const paidFixed = (monthlyFixedExpenses || [])
       .filter(fe => fe.is_paid)
-      .map(fe => ({ name: fe.name, amount: fe.amount, day_of_month: fe.day_of_month }));
+      .map(fe => {
+        const dayOfMonth = fe.due_date ? new Date(fe.due_date).getDate() : fe.day_of_month;
+        return { name: fe.name, amount: fe.amount, day_of_month: dayOfMonth };
+      });
 
     const paidVariable = (monthlyTransactions || [])
       .filter(t => t.amount < 0 && t.status === 'Concluído')
@@ -264,20 +271,25 @@ const Index = () => {
     const unpaidFixedExpenses = (monthlyFixedExpenses || []).filter(fe => !fe.is_paid);
 
     for (const expense of unpaidFixedExpenses) {
-      const expenseDueDate = new Date(selectedYear, selectedMonth - 1, expense.day_of_month);
+      // Determina a data de vencimento real (override ou padrão)
+      const dayOfMonth = expense.due_date ? new Date(expense.due_date).getDate() : expense.day_of_month;
+      const expenseDueDate = expense.due_date 
+        ? new Date(expense.due_date) 
+        : new Date(selectedYear, selectedMonth - 1, dayOfMonth);
 
       if (isCurrentMonth && expenseDueDate < startOfToday) {
-        overdue.push(expense);
+        overdue.push({ ...expense, day_of_month: dayOfMonth });
       } else {
         if (isCurrentMonth) {
           const sevenDaysFromNow = new Date(startOfToday);
           sevenDaysFromNow.setDate(startOfToday.getDate() + 7);
 
-          if (expenseDueDate < sevenDaysFromNow) {
-            upcoming.push(expense);
+          if (expenseDueDate >= startOfToday && expenseDueDate < sevenDaysFromNow) {
+            upcoming.push({ ...expense, day_of_month: dayOfMonth });
           }
         } else {
-          upcoming.push(expense);
+          // Se não for o mês atual, todas as despesas não pagas são consideradas 'upcoming'
+          upcoming.push({ ...expense, day_of_month: dayOfMonth });
         }
       }
     }
@@ -292,10 +304,11 @@ const Index = () => {
         category: t.category,
         day_of_month: new Date(t.date).getUTCDate(),
         is_paid: false,
+        due_date: t.date, // Usamos a data da transação como referência
       }));
 
     for (const expense of pendingVariableExpenses) {
-      const expenseDate = new Date(selectedYear, selectedMonth - 1, expense.day_of_month);
+      const expenseDate = new Date(expense.due_date);
 
       if (isCurrentMonth && expenseDate < startOfToday) {
         overdue.push(expense);

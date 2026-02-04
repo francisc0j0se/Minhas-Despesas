@@ -49,7 +49,8 @@ interface FixedExpense {
   category: string | null;
   is_paid: boolean;
   fixed_expense_id: string;
-  date?: string; // Adicionado para passar a data calculada
+  date?: string; // Mantido para compatibilidade, mas será sobrescrito
+  due_date: string | null; // Novo campo retornado pela RPC
 }
 
 interface CombinedEntry {
@@ -67,6 +68,7 @@ interface CombinedEntry {
 }
 
 const formatDate = (dateString: string) => {
+  // Garante que a data seja formatada corretamente, mesmo se for apenas 'YYYY-MM-DD'
   return new Date(dateString).toLocaleDateString("pt-BR", { timeZone: 'UTC' });
 };
 
@@ -237,19 +239,26 @@ const Expenses = () => {
       amount: Math.abs(t.amount), // Usar valor absoluto para despesas
     }));
 
-    const fixedExpenses = data.fixedExpenses.map((fe): CombinedEntry => ({
-      id: fe.id, 
-      name: fe.name, 
-      amount: fe.amount, 
-      date: new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString(),
-      category: fe.category, 
-      type: 'Fixa', 
-      accountName: 'N/A', 
-      is_paid: fe.is_paid, 
-      status: fe.is_paid ? 'Concluído' : 'Pendente', // Fixas usam is_paid para status
-      fixed_expense_id: fe.fixed_expense_id,
-      uniqueKey: `F-${fe.id}`,
-    }));
+    const fixedExpenses = data.fixedExpenses.map((fe): CombinedEntry => {
+      // Calcula a data de vencimento: usa due_date se existir, senão usa day_of_month
+      const calculatedDate = fe.due_date 
+        ? fe.due_date 
+        : new Date(selectedYear, selectedMonth - 1, fe.day_of_month).toISOString();
+
+      return {
+        id: fe.id, 
+        name: fe.name, 
+        amount: fe.amount, 
+        date: calculatedDate, // Usando a data calculada/sobrescrita
+        category: fe.category, 
+        type: 'Fixa', 
+        accountName: 'N/A', 
+        is_paid: fe.is_paid, 
+        status: fe.is_paid ? 'Concluído' : 'Pendente', 
+        fixed_expense_id: fe.fixed_expense_id,
+        uniqueKey: `F-${fe.id}`,
+      };
+    });
 
     return [...transactions, ...fixedExpenses];
   }, [data, selectedMonth, selectedYear]);
@@ -356,7 +365,7 @@ const Expenses = () => {
     }
     const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
-      // Passamos a data calculada (entry.date) para o diálogo
+      // Passamos a data que está sendo exibida (entry.date) para o diálogo
       setSelectedFixedExpense({ ...originalExpense, date: entry.date });
       setIsEditMonthlyOverrideDialogOpen(true);
     }
