@@ -115,17 +115,33 @@ const Index = () => {
     const currentTransactions = monthlyTransactions || [];
     const incomeThisMonth = currentTransactions.filter(t => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
     
-    const expensesFromTransactions = currentTransactions.filter(t => t.amount < 0).reduce((acc, t) => acc + t.amount, 0);
-    const expensesFromFixed = (monthlyFixedExpenses || []).reduce((acc, fe) => acc + fe.amount, 0);
-    const paidFixedExpenses = (monthlyFixedExpenses || []).filter(fe => fe.is_paid).reduce((acc, fe) => acc + fe.amount, 0);
+    // Despesas Variáveis (sempre negativas)
+    const variableExpenses = currentTransactions.filter(t => t.amount < 0);
+    
+    // Total de Despesas Variáveis (valor absoluto)
+    const totalVariableExpenses = variableExpenses.reduce((acc, t) => acc + Math.abs(t.amount), 0);
+    
+    // Total de Despesas Variáveis PAGAS (status 'Concluído')
+    const paidVariableExpenses = variableExpenses
+      .filter(t => t.status === 'Concluído')
+      .reduce((acc, t) => acc + Math.abs(t.amount), 0);
 
-    const totalExpensesThisMonth = (showVariable ? Math.abs(expensesFromTransactions) : 0) + (showFixed ? expensesFromFixed : 0);
-    const totalPaidThisMonth = (showVariable ? Math.abs(expensesFromTransactions) : 0) + (showFixed ? paidFixedExpenses : 0);
+    // Despesas Fixas
+    const fixedExpenses = monthlyFixedExpenses || [];
+    const totalFixedExpenses = fixedExpenses.reduce((acc, fe) => acc + fe.amount, 0);
+    const paidFixedExpenses = fixedExpenses.filter(fe => fe.is_paid).reduce((acc, fe) => acc + fe.amount, 0);
+
+    // Totais
+    const totalExpensesThisMonth = (showVariable ? totalVariableExpenses : 0) + (showFixed ? totalFixedExpenses : 0);
+    const totalPaidThisMonth = (showVariable ? paidVariableExpenses : 0) + (showFixed ? paidFixedExpenses : 0);
     
     const amountToPay = totalExpensesThisMonth - totalPaidThisMonth;
     
     const savingsThisMonth = incomeThisMonth - totalExpensesThisMonth;
-    const totalBalance = incomeThisMonth + (showVariable ? expensesFromTransactions : 0) - (showFixed ? expensesFromFixed : 0);
+    
+    // O Saldo do Mês deve ser calculado com base no que foi PAGO/RECEBIDO, mas aqui estamos usando o total de despesas projetadas
+    // Para manter a consistência com a lógica anterior (Receita - Despesas Totais Projetadas), mantemos:
+    const totalBalance = incomeThisMonth - totalExpensesThisMonth; 
 
     return [
       { title: 'Saldo do Mês', value: formatCurrency(totalBalance), description: `Balanço de ${monthName}`, icon: Wallet, valueClassName: totalBalance >= 0 ? 'text-green-500' : 'text-red-500' },
@@ -172,6 +188,7 @@ const Index = () => {
   const getCategorySpendingData = () => {
     const categoryTotals: { [key: string]: number } = {};
     
+    // Despesas Variáveis (todas, pagas ou pendentes)
     if (showVariable) {
       (monthlyTransactions || []).filter(t => t.amount < 0).forEach(t => {
         const category = t.category || 'Sem Categoria';
@@ -179,6 +196,7 @@ const Index = () => {
       });
     }
 
+    // Despesas Fixas (todas, pagas ou pendentes)
     if (showFixed) {
       (monthlyFixedExpenses || []).forEach(fe => {
         const category = fe.category || 'Sem Categoria';
@@ -198,6 +216,7 @@ const Index = () => {
       spending: 0,
     }));
 
+    // Despesas Variáveis
     if (showVariable && monthlyTransactions) {
       monthlyTransactions.filter(t => t.amount < 0).forEach(t => {
         const day = new Date(t.date).getUTCDate() - 1;
@@ -207,6 +226,7 @@ const Index = () => {
       });
     }
 
+    // Despesas Fixas
     if (showFixed && monthlyFixedExpenses) {
       monthlyFixedExpenses.forEach(fe => {
         const day = fe.day_of_month - 1;
@@ -220,9 +240,16 @@ const Index = () => {
   };
 
   const getPaidExpenses = () => {
-    return (monthlyFixedExpenses || [])
+    const paidFixed = (monthlyFixedExpenses || [])
       .filter(fe => fe.is_paid)
-      .sort((a, b) => a.day_of_month - b.day_of_month);
+      .map(fe => ({ name: fe.name, amount: fe.amount, day_of_month: fe.day_of_month }));
+
+    const paidVariable = (monthlyTransactions || [])
+      .filter(t => t.amount < 0 && t.status === 'Concluído')
+      .map(t => ({ name: t.name, amount: Math.abs(t.amount), day_of_month: new Date(t.date).getUTCDate() }));
+
+    // Combinar e ordenar por dia
+    return [...paidFixed, ...paidVariable].sort((a, b) => a.day_of_month - b.day_of_month);
   };
 
   const getOverdueAndUpcomingExpenses = () => {
@@ -233,9 +260,10 @@ const Index = () => {
     
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const unpaidExpenses = (monthlyFixedExpenses || []).filter(fe => !fe.is_paid);
+    // 1. Despesas Fixas não pagas
+    const unpaidFixedExpenses = (monthlyFixedExpenses || []).filter(fe => !fe.is_paid);
 
-    for (const expense of unpaidExpenses) {
+    for (const expense of unpaidFixedExpenses) {
       const expenseDueDate = new Date(selectedYear, selectedMonth - 1, expense.day_of_month);
 
       if (isCurrentMonth && expenseDueDate < startOfToday) {
@@ -248,6 +276,33 @@ const Index = () => {
           if (expenseDueDate < sevenDaysFromNow) {
             upcoming.push(expense);
           }
+        } else {
+          upcoming.push(expense);
+        }
+      }
+    }
+
+    // 2. Despesas Variáveis Pendentes (sem data de vencimento fixa, usamos a data da transação)
+    const pendingVariableExpenses = (monthlyTransactions || [])
+      .filter(t => t.amount < 0 && t.status === 'Pendente')
+      .map(t => ({
+        id: t.id,
+        name: t.name,
+        amount: Math.abs(t.amount),
+        category: t.category,
+        day_of_month: new Date(t.date).getUTCDate(),
+        is_paid: false,
+      }));
+
+    for (const expense of pendingVariableExpenses) {
+      const expenseDate = new Date(selectedYear, selectedMonth - 1, expense.day_of_month);
+
+      if (isCurrentMonth && expenseDate < startOfToday) {
+        overdue.push(expense);
+      } else {
+        // Para variáveis pendentes, consideramos 'upcoming' se a data for hoje ou futura no mês atual.
+        if (isCurrentMonth) {
+          upcoming.push(expense);
         } else {
           upcoming.push(expense);
         }

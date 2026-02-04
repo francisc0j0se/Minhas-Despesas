@@ -40,6 +40,19 @@ const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
+  const getStatusVariant = (status: string, amount: number) => {
+    if (amount > 0) return 'default'; // Receita é sempre concluída
+    
+    switch (status) {
+      case 'Concluído':
+        return 'default';
+      case 'Pendente':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -64,11 +77,11 @@ const RecentTransactions = ({ transactions }: RecentTransactionsProps) => {
                   <div className="font-medium">{transaction.name}</div>
                   <div className="text-sm text-muted-foreground hidden md:inline">{formatDate(transaction.date)}</div>
                 </TableCell>
-                <TableCell className={`text-right ${transaction.amount > 0 ? 'text-green-500' : ''}`}>
+                <TableCell className={`text-right ${transaction.amount > 0 ? 'text-green-500' : 'text-red-500'}`}>
                   {formatCurrency(transaction.amount)}
                 </TableCell>
                 <TableCell className="hidden sm:table-cell">
-                  <Badge variant={transaction.status === 'Completed' ? 'default' : 'secondary'}>
+                  <Badge variant={getStatusVariant(transaction.status, transaction.amount)}>
                     {transaction.status}
                   </Badge>
                 </TableCell>
