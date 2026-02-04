@@ -239,14 +239,14 @@ const EditTransactionDialog = ({ isOpen, onOpenChange, transaction, type }: Edit
               control={control}
               render={({ field }) => (
                 <Popover>
-                  <PopoverTrigger asChild disabled={isPast}>
+                  <PopoverTrigger asChild>
                     <Button
                       variant={"outline"}
                       className={cn(
                         "w-full justify-start text-left font-normal",
                         !field.value && "text-muted-foreground"
                       )}
-                      disabled={isPast}
+                      disabled={isPast} // Aplicando disabled apenas no Button
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {field.value ? format(field.value, "PPP") : <span>Escolha uma data</span>}
