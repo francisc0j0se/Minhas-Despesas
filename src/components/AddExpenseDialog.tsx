@@ -86,7 +86,7 @@ const AddExpenseDialog = ({ isOpen, onOpenChange }: AddExpenseDialogProps) => {
         ...data, 
         amount: amountToInsert,
         user_id: user.id, 
-        status: 'Concluído' 
+        status: 'Pendente' // Alterado para Pendente
       }]);
       if (error) throw error;
     },

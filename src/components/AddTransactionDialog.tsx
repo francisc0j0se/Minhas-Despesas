@@ -97,13 +97,14 @@ const AddTransactionDialog = ({ isOpen, onOpenChange }: AddTransactionDialogProp
       if (!user) throw new Error("Usuário não autenticado.");
 
       const amountToInsert = data.type === 'expense' ? data.amount * -1 : data.amount;
+      const statusToInsert = data.type === 'expense' ? 'Pendente' : 'Concluído'; // Lógica ajustada
       const { type, ...transactionData } = data;
 
       const { error } = await supabase.from("transactions").insert([{ 
         ...transactionData, 
         amount: amountToInsert,
         user_id: user.id, 
-        status: 'Concluído' 
+        status: statusToInsert 
       }]);
       if (error) throw error;
     },

@@ -37,6 +37,7 @@ interface Transaction {
   date: string;
   account_id: string;
   category: string | null;
+  status: string; // Adicionado status
   accounts: { name: string } | null;
 }
 
@@ -59,6 +60,7 @@ interface CombinedEntry {
   type: 'Variável' | 'Fixa';
   accountName: string | null;
   is_paid: boolean;
+  status: string; // Adicionado status
   fixed_expense_id?: string;
   uniqueKey: string;
 }
@@ -179,15 +181,22 @@ const Expenses = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Usuário não autenticado.");
 
-        const { error } = await supabase.from("monthly_expense_status").upsert({
-            user_id: user.id,
-            fixed_expense_id: expenseId,
-            month: selectedMonth,
-            year: selectedYear,
-            is_paid: isPaid,
-        }, { onConflict: 'user_id,fixed_expense_id,month,year' });
-
-        if (error) throw error;
+        // Se for despesa fixa, atualiza monthly_expense_status
+        if (selectedEntryForAction?.type === 'Fixa') {
+            const { error } = await supabase.from("monthly_expense_status").upsert({
+                user_id: user.id,
+                fixed_expense_id: expenseId,
+                month: selectedMonth,
+                year: selectedYear,
+                is_paid: isPaid,
+            }, { onConflict: 'user_id,fixed_expense_id,month,year' });
+            if (error) throw error;
+        } else {
+            // Se for despesa variável, atualiza o status na tabela transactions
+            const newStatus = isPaid ? 'Concluído' : 'Pendente';
+            const { error } = await supabase.from("transactions").update({ status: newStatus }).eq("id", expenseId);
+            if (error) throw error;
+        }
     },
     onSuccess: () => {
         showSuccess("Status da despesa atualizado!");
@@ -204,9 +213,13 @@ const Expenses = () => {
       showError("Não é possível alterar o status de despesas em meses passados.");
       return;
     }
+    
+    // Para despesas fixas, usamos is_paid. Para variáveis, inferimos o status.
+    const isPaid = entry.type === 'Fixa' ? entry.is_paid : entry.status === 'Concluído';
+
     togglePaidStatusMutation.mutate({
         expenseId: entry.id,
-        isPaid: !entry.is_paid,
+        isPaid: !isPaid,
     });
   };
 
@@ -217,7 +230,8 @@ const Expenses = () => {
       ...t, 
       type: 'Variável', 
       accountName: t.accounts?.name || null,
-      is_paid: true, // Variáveis são consideradas pagas ao serem registradas
+      is_paid: t.status === 'Concluído', // Variáveis usam o status do DB
+      status: t.status,
       uniqueKey: `V-${t.id}`,
       amount: Math.abs(t.amount), // Usar valor absoluto para despesas
     }));
@@ -231,6 +245,7 @@ const Expenses = () => {
       type: 'Fixa', 
       accountName: 'N/A', 
       is_paid: fe.is_paid, 
+      status: fe.is_paid ? 'Concluído' : 'Pendente', // Fixas usam is_paid para status
       fixed_expense_id: fe.fixed_expense_id,
       uniqueKey: `F-${fe.id}`,
     }));
@@ -263,9 +278,8 @@ const Expenses = () => {
 
     if (filterStatus !== 'all') {
       filtered = filtered.filter(entry => {
-        if (entry.type === 'Variável') return filterStatus === 'paid'; // Variáveis são sempre pagas
-        
-        return filterStatus === 'paid' ? entry.is_paid : !entry.is_paid;
+        const entryStatus = entry.type === 'Fixa' ? (entry.is_paid ? 'paid' : 'pending') : (entry.status === 'Concluído' ? 'paid' : 'pending');
+        return filterStatus === entryStatus;
       });
     }
 
@@ -409,6 +423,7 @@ const Expenses = () => {
     const entry = selectedEntryForAction;
     const isFixed = entry.type === 'Fixa';
     const isEditable = !isPastMonth;
+    const isPaid = isFixed ? entry.is_paid : entry.status === 'Concluído';
 
     return (
       <Sheet open={isActionSheetOpen} onOpenChange={setIsActionSheetOpen}>
@@ -417,26 +432,26 @@ const Expenses = () => {
             <SheetTitle>Ações para: {entry.name}</SheetTitle>
           </SheetHeader>
           <div className="grid gap-4">
-            {isFixed ? (
+            <Button
+              size="lg"
+              variant={isPaid ? "secondary" : "default"}
+              onClick={() => handleTogglePaidStatus(entry)}
+              disabled={!isEditable}
+            >
+              {isPaid ? (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Marcar como Pendente
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Marcar como Paga
+                </>
+              )}
+            </Button>
+            {isFixed && (
               <>
-                <Button
-                  size="lg"
-                  variant={entry.is_paid ? "secondary" : "default"}
-                  onClick={() => handleTogglePaidStatus(entry)}
-                  disabled={!isEditable}
-                >
-                  {entry.is_paid ? (
-                    <>
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Marcar como Pendente
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      Marcar como Paga
-                    </>
-                  )}
-                </Button>
                 <Button
                   size="lg"
                   variant="outline"
@@ -454,63 +469,41 @@ const Expenses = () => {
                   <Edit className="h-4 w-4 mr-2" />
                   Editar Despesa Padrão
                 </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="lg" variant="destructive" className="mt-4" disabled={!isEditable}>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Excluir Despesa Fixa
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tem certeza que deseja excluir a despesa fixa "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeleteFixed(entry)} className="bg-red-600 hover:bg-red-700">
-                        Excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="lg"
-                  onClick={() => handleEditVariableClick(entry)}
-                  disabled={!isEditable}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editar Despesa Variável
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="lg" variant="destructive" className="mt-4" disabled={!isEditable}>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Excluir Despesa Variável
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Tem certeza que deseja excluir a despesa variável "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeleteVariable(entry)} className="bg-red-600 hover:bg-red-700">
-                        Excluir
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
               </>
             )}
+            {!isFixed && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => handleEditVariableClick(entry)}
+                disabled={!isEditable}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Editar Despesa Variável
+              </Button>
+            )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button size="lg" variant="destructive" className="mt-4" disabled={!isEditable}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir {isFixed ? 'Despesa Fixa' : 'Despesa Variável'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir a despesa "{entry.name}"? Esta ação não pode ser desfeita e removerá o registro permanentemente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => isFixed ? handleDeleteFixed(entry) : handleDeleteVariable(entry)} className="bg-red-600 hover:bg-red-700">
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             {!isEditable && (
               <p className="text-sm text-center text-red-500">Mês passado. Edição bloqueada.</p>
             )}
@@ -687,7 +680,7 @@ const Expenses = () => {
                   </TableRow>
                 )}
                 {filteredAndSortedData.map((entry) => (
-                  <TableRow key={entry.uniqueKey} data-paid={entry.type === 'Fixa' && entry.is_paid} className="data-[paid=true]:bg-green-50 dark:data-[paid=true]:bg-green-950/50">
+                  <TableRow key={entry.uniqueKey} data-paid={entry.is_paid} className="data-[paid=true]:bg-green-50 dark:data-[paid=true]:bg-green-950/50">
                     <TableCell className="p-0 text-center">
                       <Checkbox
                         checked={selectedRows.has(entry.uniqueKey)}
@@ -695,13 +688,9 @@ const Expenses = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {entry.type === 'Fixa' ? (
-                        <Badge variant={entry.is_paid ? 'default' : 'secondary'}>
-                          {entry.is_paid ? 'Pago' : 'Pendente'}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">Concluído</Badge>
-                      )}
+                      <Badge variant={entry.is_paid ? 'default' : 'secondary'}>
+                        {entry.is_paid ? 'Pago' : 'Pendente'}
+                      </Badge>
                     </TableCell>
                     <TableCell className="font-medium">
                       {entry.name}
@@ -745,6 +734,9 @@ const Expenses = () => {
                             <DropdownMenuLabel>Ações</DropdownMenuLabel>
                             {entry.type === 'Variável' ? (
                               <>
+                                <DropdownMenuItem onSelect={() => handleTogglePaidStatus(entry)} disabled={isPastMonth}>
+                                  {entry.is_paid ? "Marcar como Pendente" : "Marcar como Paga"}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onSelect={() => handleEditVariableClick(entry)} disabled={isPastMonth}>Editar</DropdownMenuItem>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
