@@ -278,7 +278,7 @@ const Expenses = () => {
 
     if (filterStatus !== 'all') {
       filtered = filtered.filter(entry => {
-        const entryStatus = entry.type === 'Fixa' ? (entry.is_paid ? 'paid' : 'pending') : (entry.status === 'Concluído' ? 'paid' : 'pending');
+        const entryStatus = entry.is_paid ? 'paid' : 'pending';
         return filterStatus === entryStatus;
       });
     }
@@ -423,7 +423,7 @@ const Expenses = () => {
     const entry = selectedEntryForAction;
     const isFixed = entry.type === 'Fixa';
     const isEditable = !isPastMonth;
-    const isPaid = isFixed ? entry.is_paid : entry.status === 'Concluído';
+    const isPaid = entry.is_paid;
 
     return (
       <Sheet open={isActionSheetOpen} onOpenChange={setIsActionSheetOpen}>
@@ -654,8 +654,8 @@ const Expenses = () => {
                     </Button>
                   </TableHead>
                   <TableHead className="hidden md:table-cell">
-                    <Button variant="ghost" onClick={() => requestSort('date_day')} className="px-2">
-                      Dia {renderSortArrow('date_day')}
+                    <Button variant="ghost" onClick={() => requestSort('date')} className="px-2">
+                      Data {renderSortArrow('date')}
                     </Button>
                   </TableHead>
                   <TableHead className="text-right">
@@ -697,7 +697,7 @@ const Expenses = () => {
                       <div className="text-xs text-muted-foreground lg:hidden mt-1">
                         {entry.category && <Badge variant="outline" className="mr-1">{entry.category}</Badge>}
                         {entry.accountName && <span className="mr-1">{entry.accountName}</span>}
-                        {entry.type === 'Fixa' ? `Dia ${new Date(entry.date).getUTCDate()}` : formatDate(entry.date)}
+                        {entry.type === 'Fixa' ? `Vencimento: Dia ${new Date(entry.date).getUTCDate()}` : formatDate(entry.date)}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -708,7 +708,7 @@ const Expenses = () => {
                     </TableCell>
                     <TableCell className="hidden xl:table-cell">{entry.accountName || 'N/A'}</TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {entry.type === 'Fixa' ? `Dia ${new Date(entry.date).getUTCDate()}` : formatDate(entry.date)}
+                      {formatDate(entry.date)}
                     </TableCell>
                     <TableCell className="text-right">
                       {formatCurrency(entry.amount)}
