@@ -49,6 +49,7 @@ interface FixedExpense {
   category: string | null;
   is_paid: boolean;
   fixed_expense_id: string;
+  date?: string; // Adicionado para passar a data calculada
 }
 
 interface CombinedEntry {
@@ -355,7 +356,8 @@ const Expenses = () => {
     }
     const originalExpense = data?.fixedExpenses.find(fe => `F-${fe.id}` === entry.uniqueKey);
     if (originalExpense) {
-      setSelectedFixedExpense(originalExpense);
+      // Passamos a data calculada (entry.date) para o diálogo
+      setSelectedFixedExpense({ ...originalExpense, date: entry.date });
       setIsEditMonthlyOverrideDialogOpen(true);
     }
     setIsActionSheetOpen(false);
@@ -459,7 +461,7 @@ const Expenses = () => {
                   disabled={!isEditable}
                 >
                   <Edit className="h-4 w-4 mr-2" />
-                  Alterar Valor do Mês
+                  Alterar Valor/Data do Mês
                 </Button>
                 <Button
                   size="lg"
@@ -766,7 +768,7 @@ const Expenses = () => {
                                 <DropdownMenuItem onSelect={() => handleTogglePaidStatus(entry)} disabled={isPastMonth}>
                                   {entry.is_paid ? "Marcar como Pendente" : "Marcar como Paga"}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onSelect={() => handleOverrideClick(entry)} disabled={isPastMonth}>Alterar Valor do Mês</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleOverrideClick(entry)} disabled={isPastMonth}>Alterar Valor/Data do Mês</DropdownMenuItem>
                                 <DropdownMenuItem onSelect={() => handleEditFixedClick(entry)}>Editar Despesa Padrão</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <AlertDialog>
