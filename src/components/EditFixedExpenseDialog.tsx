@@ -12,12 +12,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { CategoryCombobox } from "./CategoryCombobox";
 import { useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const expenseSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
   amount: z.coerce.number().positive("O valor deve ser positivo."),
   category: z.string().optional(),
-  day_of_month: z.coerce.number().min(1).max(31).optional(),
+  day_of_month: z.coerce.number().min(1).max(31).optional().nullable(),
 });
 
 interface FixedExpenseToEdit {
@@ -33,6 +34,8 @@ interface EditFixedExpenseDialogProps {
   onOpenChange: (isOpen: boolean) => void;
   expense: FixedExpenseToEdit | null;
 }
+
+const daysOfMonth = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpenseDialogProps) => {
   const queryClient = useQueryClient();
@@ -54,7 +57,14 @@ const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpe
   const mutation = useMutation({
     mutationFn: async (data: z.infer<typeof expenseSchema>) => {
       if (!expense) throw new Error("Nenhuma despesa selecionada.");
-      const { error } = await supabase.from("fixed_expenses").update(data).eq("id", expense.id);
+      
+      // Garante que day_of_month seja null se for undefined/vazio
+      const updateData = {
+        ...data,
+        day_of_month: data.day_of_month === undefined || data.day_of_month === null ? null : data.day_of_month,
+      };
+
+      const { error } = await supabase.from("fixed_expenses").update(updateData).eq("id", expense.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -106,8 +116,27 @@ const EditFixedExpenseDialog = ({ isOpen, onOpenChange, expense }: EditFixedExpe
             />
           </div>
           <div>
-            <Label htmlFor="day_of_month">Dia do Vencimento</Label>
-            <Input id="day_of_month" type="number" min="1" max="31" {...register("day_of_month")} />
+            <Label htmlFor="day_of_month">Dia do Vencimento (Opcional)</Label>
+            <Controller
+              name="day_of_month"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  onValueChange={(v) => field.onChange(v ? Number(v) : null)}
+                  value={field.value ? String(field.value) : ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o dia do mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {daysOfMonth.map(day => (
+                      <SelectItem key={day} value={String(day)}>Dia {day}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.day_of_month && <p className="text-red-500 text-sm mt-1">{errors.day_of_month.message}</p>}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

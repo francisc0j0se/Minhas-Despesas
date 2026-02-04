@@ -11,18 +11,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { showSuccess, showError } from "@/utils/toast";
 import { CategoryCombobox } from "./CategoryCombobox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const expenseSchema = z.object({
   name: z.string().min(1, "O nome é obrigatório."),
   amount: z.coerce.number().positive("O valor deve ser positivo."),
   category: z.string().optional(),
-  day_of_month: z.coerce.number().min(1).max(31).optional(),
+  day_of_month: z.coerce.number().min(1).max(31).optional().nullable(),
 });
 
 interface AddFixedExpenseDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
+
+const daysOfMonth = Array.from({ length: 31 }, (_, i) => i + 1);
 
 const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogProps) => {
   const queryClient = useQueryClient();
@@ -31,6 +34,7 @@ const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogPr
     defaultValues: {
       name: "",
       category: "",
+      day_of_month: undefined,
     }
   });
 
@@ -38,12 +42,20 @@ const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogPr
     mutationFn: async (newExpense: z.infer<typeof expenseSchema>) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado.");
-      const { error } = await supabase.from("fixed_expenses").insert([{ ...newExpense, user_id: user.id }]);
+      
+      const insertData = {
+        ...newExpense,
+        user_id: user.id,
+        day_of_month: newExpense.day_of_month === undefined || newExpense.day_of_month === null ? null : newExpense.day_of_month,
+      };
+
+      const { error } = await supabase.from("fixed_expenses").insert([insertData]);
       if (error) throw error;
     },
     onSuccess: () => {
       showSuccess("Despesa fixa adicionada!");
       queryClient.invalidateQueries({ queryKey: ["monthly_fixed_expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["allExpenses"] });
       onOpenChange(false);
       reset();
     },
@@ -90,8 +102,27 @@ const AddFixedExpenseDialog = ({ isOpen, onOpenChange }: AddFixedExpenseDialogPr
             />
           </div>
           <div>
-            <Label htmlFor="day_of_month">Dia do Vencimento</Label>
-            <Input id="day_of_month" type="number" min="1" max="31" {...register("day_of_month")} />
+            <Label htmlFor="day_of_month">Dia do Vencimento (Opcional)</Label>
+            <Controller
+              name="day_of_month"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  onValueChange={(v) => field.onChange(v ? Number(v) : null)}
+                  value={field.value ? String(field.value) : ""}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o dia do mês" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {daysOfMonth.map(day => (
+                      <SelectItem key={day} value={String(day)}>Dia {day}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.day_of_month && <p className="text-red-500 text-sm mt-1">{errors.day_of_month.message}</p>}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
