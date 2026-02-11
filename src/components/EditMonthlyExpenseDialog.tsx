@@ -18,9 +18,12 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
+import { CategoryCombobox } from "./CategoryCombobox";
 
 const expenseSchema = z.object({
+  name: z.string().min(1, "O nome é obrigatório."),
   amount: z.coerce.number().positive("O valor deve ser positivo."),
+  category: z.string().optional(),
   is_paid: z.boolean(),
   date: z.date({ required_error: "A data é obrigatória." }),
 });
@@ -29,8 +32,9 @@ interface FixedExpenseToOverride {
   fixed_expense_id: string; 
   name: string; 
   amount: number; 
+  category: string | null;
   is_paid: boolean; 
-  date: string; // Data calculada/atual
+  date: string; 
 }
 
 interface EditMonthlyExpenseDialogProps {
@@ -52,7 +56,9 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
   useEffect(() => {
     if (expense) {
       reset({
+        name: expense.name,
         amount: expense.amount,
+        category: expense.category || "",
         is_paid: expense.is_paid,
         date: new Date(expense.date),
       });
@@ -66,14 +72,16 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado.");
 
-      // 1. Atualiza o Override (Valor e Data de Vencimento)
+      // 1. Atualiza o Override (Independência total: Nome, Valor, Categoria e Data)
       const overridePromise = supabase.from("expense_overrides").upsert({
         user_id: user.id,
         fixed_expense_id: expense.fixed_expense_id,
         month,
         year,
+        name: data.name,
         amount: data.amount,
-        due_date: format(data.date, 'yyyy-MM-dd'), // Salva a data completa
+        category: data.category,
+        due_date: format(data.date, 'yyyy-MM-dd'),
       }, { onConflict: 'user_id,fixed_expense_id,month,year' });
 
       // 2. Atualiza o Status de Pago
@@ -91,7 +99,7 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
       if (statusResult.error) throw statusResult.error;
     },
     onSuccess: () => {
-      showSuccess("Despesa do mês atualizada!");
+      showSuccess("Despesa deste mês atualizada de forma independente!");
       queryClient.invalidateQueries({ queryKey: ["monthly_fixed_expenses"] });
       queryClient.invalidateQueries({ queryKey: ["allExpenses"] });
       onOpenChange(false);
@@ -111,7 +119,7 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
         <DialogHeader>
           <DialogTitle>Editar Despesa do Mês</DialogTitle>
           <DialogDescription>
-            Alterando o valor, data de vencimento e status de "{expense?.name}" apenas para o mês atual.
+            As alterações feitas aqui afetarão **apenas** o mês de {month}/{year}.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -121,12 +129,31 @@ const EditMonthlyExpenseDialog = ({ isOpen, onOpenChange, expense, month, year }
             </div>
           )}
           <div>
-            <Label htmlFor="amount">Novo Valor (R$)</Label>
+            <Label htmlFor="name">Nome (Apenas para este mês)</Label>
+            <Input id="name" {...register("name")} disabled={isPast} />
+            {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>}
+          </div>
+          <div>
+            <Label htmlFor="amount">Valor (R$)</Label>
             <Input id="amount" type="number" step="0.01" {...register("amount")} disabled={isPast} />
             {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount.message}</p>}
           </div>
           <div>
-            <Label htmlFor="date">Nova Data de Vencimento</Label>
+            <Label>Categoria</Label>
+            <Controller
+              name="category"
+              control={control}
+              render={({ field }) => (
+                <CategoryCombobox
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  disabled={isPast}
+                />
+              )}
+            />
+          </div>
+          <div>
+            <Label htmlFor="date">Data de Vencimento</Label>
             <Controller
               name="date"
               control={control}
