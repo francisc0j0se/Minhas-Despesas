@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -126,7 +126,7 @@ const Expenses = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>('all');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
-  // Column Visibility (persistido em localStorage)
+  // Column Visibility (persistido em localStorage + banco de dados)
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(getInitialVisibleColumns);
 
   useEffect(() => {
@@ -136,6 +136,53 @@ const Expenses = () => {
       // localStorage indisponível — ignora
     }
   }, [visibleColumns]);
+
+  // Sincronização das colunas com o banco de dados (por usuário)
+  const hasAppliedDbColumns = useRef(false);
+  const hasUserToggledRef = useRef(false);
+
+  const { data: savedColumns } = useQuery({
+    queryKey: ['userColumnPreferences'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from('user_preferences')
+        .select('visible_columns')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.visible_columns as string[] | null) ?? null;
+    },
+  });
+
+  const saveColumnsMutation = useMutation({
+    mutationFn: async (columns: string[]) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert(
+          { user_id: user.id, visible_columns: columns, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' }
+        );
+      if (error) throw error;
+    },
+    onError: (error) => {
+      showError(`Erro ao salvar preferências de colunas: ${error.message}`);
+    },
+  });
+
+  // Aplica o valor salvo no banco na primeira carga (a menos que o usuário já tenha alterado nesta sessão)
+  useEffect(() => {
+    if (savedColumns && !hasAppliedDbColumns.current && !hasUserToggledRef.current) {
+      hasAppliedDbColumns.current = true;
+      const validKeys = savedColumns.filter(key => columnOptions.some(col => col.key === key));
+      if (validKeys.length > 0) {
+        setVisibleColumns(new Set(validKeys));
+      }
+    }
+  }, [savedColumns]);
 
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
   
@@ -438,15 +485,15 @@ const Expenses = () => {
   };
 
   const toggleColumn = (key: string) => {
-    setVisibleColumns(prev => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
+    const next = new Set(visibleColumns);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+    hasUserToggledRef.current = true;
+    setVisibleColumns(next);
+    saveColumnsMutation.mutate(Array.from(next));
   };
 
   const renderSortArrow = (key: SortableKeys) => {
