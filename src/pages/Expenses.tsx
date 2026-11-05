@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown, Copy, Edit, CheckCircle, XCircle } from "lucide-react";
+import { PlusCircle, MoreHorizontal, Trash2, ArrowUpDown, Copy, Edit, CheckCircle, XCircle, SlidersHorizontal, Check } from "lucide-react";
 import AddExpenseDialog from "@/components/AddExpenseDialog";
 import AddFixedExpenseDialog from "@/components/AddFixedExpenseDialog";
 import EditTransactionDialog from "@/components/EditTransactionDialog";
@@ -29,6 +29,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Checkbox } from "@/components/ui/checkbox";
 import FilterBar from "@/components/FilterBar";
 import { isMonthPast } from "@/utils/date";
+import { cn } from "@/lib/utils";
 
 interface Transaction {
   id: string;
@@ -74,6 +75,14 @@ const formatDate = (dateString: string) => {
 
 type SortableKeys = keyof CombinedEntry | 'date_day';
 
+const columnOptions = [
+  { key: 'status', label: 'Status' },
+  { key: 'tipo', label: 'Tipo' },
+  { key: 'categoria', label: 'Categoria' },
+  { key: 'conta', label: 'Conta' },
+  { key: 'data', label: 'Data' },
+];
+
 const Expenses = () => {
   const queryClient = useQueryClient();
   const [isAddExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
@@ -98,6 +107,11 @@ const Expenses = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>('all');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
+  // Column Visibility
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    new Set(['status', 'tipo', 'categoria', 'conta', 'data'])
+  );
+
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
   
   const isMobile = useIsMobile();
@@ -111,6 +125,9 @@ const Expenses = () => {
   const availableMonths = monthNames
     .map((month, index) => ({ name: month, value: index + 1 }))
     .filter(m => selectedYear !== currentYear || m.value <= currentMonth);
+
+  // Total de colunas renderizadas (para colSpan de estados vazios)
+  const totalColumns = 4 + visibleColumns.size;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -395,6 +412,18 @@ const Expenses = () => {
     }
   };
 
+  const toggleColumn = (key: string) => {
+    setVisibleColumns(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   const renderSortArrow = (key: SortableKeys) => {
     if (sortConfig.key !== key) {
       return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
@@ -529,7 +558,35 @@ const Expenses = () => {
       <div className="flex flex-col gap-4">
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">Despesas</h1>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="flex-1 sm:flex-grow-0">
+                  <SlidersHorizontal className="h-4 w-4 mr-2" />
+                  Colunas
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuLabel>Exibir Colunas</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {columnOptions.map((col) => (
+                  <DropdownMenuItem
+                    key={col.key}
+                    onSelect={(e) => e.preventDefault()}
+                    onClick={() => toggleColumn(col.key)}
+                    className="cursor-pointer"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        visibleColumns.has(col.key) ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {col.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" size="sm" onClick={() => setIsCopyDialogOpen(true)} className="flex-1 sm:flex-grow-0">
               <Copy className="h-4 w-4 mr-2" />
               Copiar Mês
@@ -643,32 +700,42 @@ const Expenses = () => {
                       aria-label="Selecionar todos"
                     />
                   </TableHead>
-                  <TableHead className="w-[100px]">Status</TableHead>
+                  {visibleColumns.has('status') && (
+                    <TableHead className="w-[100px]">Status</TableHead>
+                  )}
                   <TableHead>
                     <Button variant="ghost" onClick={() => requestSort('name')} className="px-2">
                       Despesa {renderSortArrow('name')}
                     </Button>
                   </TableHead>
-                  <TableHead>
-                    <Button variant="ghost" onClick={() => requestSort('type')} className="px-2">
-                      Tipo {renderSortArrow('type')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">
-                    <Button variant="ghost" onClick={() => requestSort('category')} className="px-2">
-                      Categoria {renderSortArrow('category')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="hidden xl:table-cell">
-                    <Button variant="ghost" onClick={() => requestSort('accountName')} className="px-2">
-                      Conta {renderSortArrow('accountName')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    <Button variant="ghost" onClick={() => requestSort('date')} className="px-2">
-                      Data {renderSortArrow('date')}
-                    </Button>
-                  </TableHead>
+                  {visibleColumns.has('tipo') && (
+                    <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('type')} className="px-2">
+                        Tipo {renderSortArrow('type')}
+                      </Button>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has('categoria') && (
+                    <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('category')} className="px-2">
+                        Categoria {renderSortArrow('category')}
+                      </Button>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has('conta') && (
+                    <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('accountName')} className="px-2">
+                        Conta {renderSortArrow('accountName')}
+                      </Button>
+                    </TableHead>
+                  )}
+                  {visibleColumns.has('data') && (
+                    <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('date')} className="px-2">
+                        Data {renderSortArrow('date')}
+                      </Button>
+                    </TableHead>
+                  )}
                   <TableHead className="text-right">
                     <Button variant="ghost" onClick={() => requestSort('amount')} className="px-2">
                       Valor {renderSortArrow('amount')}
@@ -682,12 +749,19 @@ const Expenses = () => {
               <TableBody>
                 {isLoading && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center">Carregando...</TableCell>
+                    <TableCell colSpan={totalColumns} className="text-center">Carregando...</TableCell>
                   </TableRow>
                 )}
                 {error && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-red-500">{(error as Error).message}</TableCell>
+                    <TableCell colSpan={totalColumns} className="text-center text-red-500">{(error as Error).message}</TableCell>
+                  </TableRow>
+                )}
+                {!isLoading && !error && filteredAndSortedData.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={totalColumns} className="text-center text-muted-foreground">
+                      Nenhuma despesa encontrada para este mês.
+                    </TableCell>
                   </TableRow>
                 )}
                 {filteredAndSortedData.map((entry) => (
@@ -698,29 +772,39 @@ const Expenses = () => {
                         onCheckedChange={() => toggleRowSelection(entry.uniqueKey)}
                       />
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={entry.is_paid ? 'default' : 'secondary'}>
-                        {entry.is_paid ? 'Pago' : 'Pendente'}
-                      </Badge>
-                    </TableCell>
+                    {visibleColumns.has('status') && (
+                      <TableCell>
+                        <Badge variant={entry.is_paid ? 'default' : 'secondary'}>
+                          {entry.is_paid ? 'Pago' : 'Pendente'}
+                        </Badge>
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium">
                       {entry.name}
-                      <div className="text-xs text-muted-foreground lg:hidden mt-1">
-                        {entry.category && <Badge variant="outline" className="mr-1">{entry.category}</Badge>}
-                        {entry.accountName && <span className="mr-1">{entry.accountName}</span>}
-                        {entry.type === 'Fixa' ? `Vencimento: Dia ${new Date(entry.date).getUTCDate()}` : formatDate(entry.date)}
+                      <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-1">
+                        {!visibleColumns.has('categoria') && entry.category && <Badge variant="outline">{entry.category}</Badge>}
+                        {!visibleColumns.has('conta') && entry.accountName && entry.accountName !== 'N/A' && <span>{entry.accountName}</span>}
+                        {!visibleColumns.has('data') && <span>{entry.type === 'Fixa' ? `Venc.: ${formatDate(entry.date)}` : formatDate(entry.date)}</span>}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant={entry.type === 'Fixa' ? 'secondary' : 'outline'}>{entry.type}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      {entry.category && <Badge variant="outline">{entry.category}</Badge>}
-                    </TableCell>
-                    <TableCell className="hidden xl:table-cell">{entry.accountName || 'N/A'}</TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {formatDate(entry.date)}
-                    </TableCell>
+                    {visibleColumns.has('tipo') && (
+                      <TableCell>
+                        <Badge variant={entry.type === 'Fixa' ? 'secondary' : 'outline'}>{entry.type}</Badge>
+                      </TableCell>
+                    )}
+                    {visibleColumns.has('categoria') && (
+                      <TableCell>
+                        {entry.category && <Badge variant="outline">{entry.category}</Badge>}
+                      </TableCell>
+                    )}
+                    {visibleColumns.has('conta') && (
+                      <TableCell>{entry.accountName || 'N/A'}</TableCell>
+                    )}
+                    {visibleColumns.has('data') && (
+                      <TableCell>
+                        {formatDate(entry.date)}
+                      </TableCell>
+                    )}
                     <TableCell className="text-right">
                       {formatCurrency(entry.amount)}
                     </TableCell>
@@ -847,7 +931,14 @@ const Expenses = () => {
       <EditMonthlyExpenseDialog
         isOpen={isEditMonthlyOverrideDialogOpen}
         onOpenChange={setIsEditMonthlyOverrideDialogOpen}
-        expense={selectedFixedExpense}
+        expense={selectedFixedExpense ? {
+          fixed_expense_id: selectedFixedExpense.fixed_expense_id,
+          name: selectedFixedExpense.name,
+          amount: selectedFixedExpense.amount,
+          category: selectedFixedExpense.category,
+          is_paid: selectedFixedExpense.is_paid,
+          date: selectedFixedExpense.date ?? new Date(selectedYear, selectedMonth - 1, selectedFixedExpense.day_of_month).toISOString(),
+        } : null}
         month={selectedMonth}
         year={selectedYear}
       />
