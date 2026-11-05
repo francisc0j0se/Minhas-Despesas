@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -83,6 +83,25 @@ const columnOptions = [
   { key: 'data', label: 'Data' },
 ];
 
+const COLUMN_STORAGE_KEY = 'expenses-visible-columns';
+const DEFAULT_VISIBLE_COLUMNS = ['status', 'tipo', 'categoria', 'conta', 'data'];
+
+const getInitialVisibleColumns = (): Set<string> => {
+  try {
+    const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        const validKeys = parsed.filter(key => columnOptions.some(col => col.key === key));
+        return new Set(validKeys);
+      }
+    }
+  } catch {
+    // localStorage indisponível ou JSON inválido — usa o padrão
+  }
+  return new Set(DEFAULT_VISIBLE_COLUMNS);
+};
+
 const Expenses = () => {
   const queryClient = useQueryClient();
   const [isAddExpenseDialogOpen, setAddExpenseDialogOpen] = useState(false);
@@ -107,10 +126,16 @@ const Expenses = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>('all');
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
 
-  // Column Visibility
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    new Set(['status', 'tipo', 'categoria', 'conta', 'data'])
-  );
+  // Column Visibility (persistido em localStorage)
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(getInitialVisibleColumns);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(Array.from(visibleColumns)));
+    } catch {
+      // localStorage indisponível — ignora
+    }
+  }, [visibleColumns]);
 
   const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
   
